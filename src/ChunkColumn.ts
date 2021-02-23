@@ -1,12 +1,11 @@
 
 /// <reference path="./global.d.ts" />
 import { Version } from "./format";
-import { BlockFactory } from  './BlockFactory'
+import { BlockFactory } from './BlockFactory'
 import { Block } from "prismarine-block";
 import { SubChunk } from './SubChunk'
 import nbt, { NBT } from "prismarine-nbt";
 import { Stream } from './Stream'
-import { trace } from "console";
 
 const MIN_Y = 0
 const MAX_Y = 15
@@ -18,7 +17,7 @@ export class ChunkColumn {
   sectionsLen: number
 
   entities: NBT[]
-  tiles: NBT[]
+  tiles: { string?: NBT }
 
   biomes?: Uint8Array
   heights?: Uint16Array
@@ -27,13 +26,16 @@ export class ChunkColumn {
   minY = MIN_Y
   maxY = MAX_Y
 
+  updated = false
+  hash: Buffer | null
+
   constructor(version: Version, x, z) {
     this.version = version
     this.x = x
     this.z = z
     this.sections = []
     this.entities = []
-    this.tiles = []
+    this.tiles = {}
     this.sectionsLen = 0
   }
 
@@ -52,6 +54,7 @@ export class ChunkColumn {
       this.addSection(new SubChunk(this.version))
       sec = this.sections[this.minY + y]
     }
+    this.updated = true
     return sec.setBlock(sx, sy & 0xf, sz, block)
   }
 
@@ -64,8 +67,15 @@ export class ChunkColumn {
     return this.sections[this.minY + y]
   }
 
-  addEntity() {
+  addEntity(nbt) {
+    this.entities.push(nbt)
+  }
 
+  addBlockEntity(nbt) {
+    console.log('[wp] adding tile', nbt)
+    const x = nbt.value.x.value
+    const z = nbt.value.z.value
+    this.tiles[x + ',' + z] = nbt
   }
 
   getSections(): SubChunk[] {
@@ -73,21 +83,36 @@ export class ChunkColumn {
   }
 
   getEntities() {
-
+    return this.entities
   }
 
   getBlockEntities() {
+    return this.tiles
+  }
 
+  getBiome(x, y, z) {
+    //todo
+  }
+
+  setBiome(x, y, z, biome) {
+    this.updated = true
+  }
+
+  updateHash(fromBuffer): Buffer {
+    this.updated = false
+    this.hash = Buffer.from([Math.random()])
+    return this.hash
   }
 
   /**
    * Encodes this chunk column for the network
    * @param full Include block entities and biomes
    */
-  async networkEncode(full = false): Promise<Buffer> {
+  async networkEncode(full = true): Promise<Buffer> {
     if (full) {
       const tileBufs = []
-      for (const tile of this.tiles) {
+      for (const key in this.tiles) {
+        const tile = this.tiles[key]
         tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
       }
       const biomeBuf = this.biomes.length ? Buffer.from(this.biomes) : Buffer.allocUnsafe(256)
@@ -95,6 +120,7 @@ export class ChunkColumn {
       for (const section of this.sections) {
         sectionBufs.push(section.networkEncode(this.version))
       }
+      if (this.updated) this.updateHash(Buffer.concat([...sectionBufs, biomeBuf]))
       return Buffer.concat([
         ...sectionBufs,
         biomeBuf,
@@ -123,14 +149,14 @@ export class ChunkColumn {
     this.biomes = new Uint8Array(stream.read(256))
     const extra = stream.read(stream.readByte())
     if (extra.length) console.debug('[wp] Read ', extra, 'bytes')
-    
+
     const buf = stream.getBuffer()
     buf.startOffset = stream.getOffset()
     while (stream.peek() == 0x0A) {
       const { parsed, metadata } = await nbt.parse(buf, 'littleVarint')
       stream.offset += metadata.size
       buf.startOffset += metadata.size
-      this.tiles.push(parsed)
+      this.addBlockEntity(parsed)
     }
   }
 }

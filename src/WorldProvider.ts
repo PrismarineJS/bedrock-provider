@@ -165,8 +165,9 @@ export class WorldProvider {
       console.log('Read chunk', column)
 
       if (full) {
+        const tiles = await this.readBlockEntities(x, z, cver)
         column.entities = await this.readEntities(x, z, cver)
-        column.tiles = await this.readBlockEntities(x, z, cver)
+        tiles.forEach(tile => column.addBlockEntity(tile))
         const data2d = await this.readBiomesAndElevation(x, z, cver)
         column.biomes = new Uint8Array(data2d.biomes2d)
         column.heights = new Uint16Array(data2d.heightmap)
@@ -177,7 +178,7 @@ export class WorldProvider {
   }
 
 
-  async networkEncode(x: int, z: int, version: Version) {
+  async networkEncode(x: int, z: int, version: Version, hash): Promise<{ buffer: Buffer, hash?: Buffer } | null> {
     const column = await this.load(x, z, false)
     if (column) {
       const { biomes2d } = await this.readBiomesAndElevation(x, z, column.version)
@@ -185,12 +186,18 @@ export class WorldProvider {
       const borderBlocks = Buffer.from([0])
       // DragonFly just writes the Data2D to its entirity here
       // const extradata = Buffer.from([0]) // ??
-      return Buffer.concat([
-        await column.networkEncode(false),
-        biomes2d,
-        borderBlocks,
-        tiles
-      ])
+      const sections = await column.networkEncode(false)
+      return {
+        hash: hash ? column.updateHash(Buffer.concat) : undefined,
+        buffer: Buffer.concat([
+          sections,
+          biomes2d,
+          borderBlocks,
+          tiles
+        ])
+      }
+    } else {
+      return null
     }
   }
 
@@ -219,6 +226,8 @@ async function test() {
       console.log('version', key.x, key.z, key.key)
 
       const cc = await wp.load(key.x, key.z, true)
+      // console.log('Entities', JSON.stringify(cc.entities, null, 2))
+      // continue
       // console.log('cc', cc)
 
       // await wp.networkEncode(key.x, key.z, Version.v17_0)
