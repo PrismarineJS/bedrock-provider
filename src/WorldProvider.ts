@@ -1,23 +1,9 @@
 import { LevelDB } from 'leveldb-zlib'
+import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './format'
+import { ChunkColumn } from './ChunkColumn'
+import { SubChunk } from './SubChunk'
+import NBT from 'prismarine-nbt'
 import BinaryStream from '@jsprismarine/jsbinaryutils'
-import { KeyBuilder, Tag, Version } from './format'
-import { ChunkColumn, SubChunk } from './ChunkColumn'
-
-const SUBCHUNK_START_HEIGHT = 0
-const SUBCHUNK_END_HEIGHT = 16
-
-export type KeyData = {
-  x?: number,
-  z?: number,
-  y?: number,
-  dim?: number,
-  type?: string,
-  tagId?: number,
-  keyLen?: number,
-  valLen?: number,
-  skey?: String,
-  key?: Buffer
-}
 
 export class WorldProvider {
   db: LevelDB
@@ -31,9 +17,9 @@ export class WorldProvider {
     this.dimension = options.dimension || 0
   }
 
-  // @ts-ignore
   private async get(key): Promise<Buffer | null> {
-    try { return await this.db.get(key) } 
+    // @ts-ignore
+    try { return await this.db.get(key) }
     catch (e) { return null }
     // catch (e) { throw new Error('Database get error ' + e.stack) }
   }
@@ -43,8 +29,8 @@ export class WorldProvider {
 
   async getChunkVersion(x, z): Promise<byte> {
     let version = await this.readNewVersion(x, z) || await this.readOldVersion(x, z)
-    console.log('v',version)
-    return version ? version[0] : null 
+    // console.log('v', version)
+    return version ? version[0] : null
   }
 
   hasChunk = async (x, z) => await this.getChunkVersion(x, z) ? true : false
@@ -60,42 +46,84 @@ export class WorldProvider {
         const subchunk = new SubChunk(version, chunk, y)
         subchunk.decode() // Note: we don't wait for it to finish decoding here
         cc.addSection(subchunk)
+
+        // console.log('RAW CHUNK', chunk.toString('hex'))
+        break
       }
       return cc
     }
     return null
   }
 
-  async readEntities(x, z, version) {
+  async readEntities(x, z, version): Promise<NBT.NBT[]> {
     let ver = version || await this.getChunkVersion(x, z)
+    const ret = []
     if (ver >= Version.v17_0) {
       let key = KeyBuilder.buildEntityKey(x, z, this.dimension)
-      // let entities = 
+      let buffer = await this.get(key) as Buffer & { startOffset }
+      // console.log('Entities', key, buffer)
+
+      if (buffer) {
+        buffer.startOffset = 0
+        while (buffer[buffer.startOffset] == 0x0A) {
+          const { parsed, metadata } = await NBT.parse(buffer, 'little')
+
+          buffer.startOffset += metadata.size
+          ret.push(parsed)
+          console.log(buffer.startOffset, metadata.size, buffer.length)
+        }
+      }
     }
+    // console.log('Entities', ret)
+    return ret
   }
 
-  async readBlockEntities(x, z, version) {
+  async readBlockEntities(x, z, version): Promise<NBT.NBT[]> {
     let ver = version || await this.getChunkVersion(x, z)
+    const ret = []
+    if (ver >= Version.v17_0) {
+      let key = KeyBuilder.buildBlockEntityKey(x, z, this.dimension)
+      let buffer = await this.get(key) as Buffer & { startOffset }
+      // console.log('Entities', key, buffer)
 
+      if (buffer) {
+        buffer.startOffset = 0
+        while (buffer[buffer.startOffset] == 0x0A) {
+          const { parsed, metadata } = await NBT.parse(buffer, 'little')
+
+          buffer.startOffset += metadata.size
+          ret.push(parsed)
+          console.log(buffer.startOffset, metadata.size, buffer.length)
+        }
+      }
+    }
+    // console.log('BlockEntities', ret)
+    return ret
   }
 
-  // private encodeSubChunks(formatVer, column: ChunkColumn) {
-  //   let bufs = []
-  //   if (formatVer >= Version.v17_0) {
-  //     for (let y = column.minY; y < column.maxY; y++) {
-  //       let section = column.sections[y]
-  //       bufs.push(section.encode(formatVer))
-  //     }
-  //   }
-  //   return bufs
-  // }
-  
-  private encodeEntities(entities) {
-    // write
+  async readBiomesAndElevation(x, z, version): Promise<{ heightmap: Buffer, biomes2d: Buffer } | null> {
+    let ver = version || await this.getChunkVersion(x, z)
+    if (ver >= Version.v17_0) {
+      const buffer = await this.get(KeyBuilder.buildHeightmapAndBiomeKey(x, z, this.dimension))
+      if (buffer) {
+        // TODO: When did this change from 256 -> 512?
+        const heightmap = buffer.slice(0, 512)
+        // TODO: this will most likely change in 1.17
+        const biomes2d = buffer.slice(512, 512 + 256)
+        // console.log('Buffer len', buffer.length)
+        return { heightmap, biomes2d }
+      }
+    }
+    return null
   }
 
-  private encodeBlockEntities(column) {
-
+  async readBorderBlocks(x, z, version) {
+    let ver = version || await this.getChunkVersion(x, z)
+    if (ver >= Version.v17_0) {
+      const buffer = await this.get(KeyBuilder.buildBorderBlocksKey(x, z, this.dimension))
+      return buffer
+    }
+    return null
   }
 
   writeSubChunks(column: ChunkColumn): Promise<any> {
@@ -123,13 +151,46 @@ export class WorldProvider {
 
   }
 
-  async load(x: number, z: number) {
+  /**
+   * Loads a full chunk column
+   * @param x position of chunk
+   * @param z position of chunk
+   * @param full include entities, tiles, height map and biomes
+   */
+  async load(x: number, z: number, full: boolean) {
     let cver = await this.getChunkVersion(x, z)
     console.log('Chunk ver', cver)
     if (cver) {
-      let cdata = await this.readSubChunks(x, z, cver)
-      console.log('Read chunk', cdata)
-      return cdata
+      let column = await this.readSubChunks(x, z, cver)
+      console.log('Read chunk', column)
+
+      if (full) {
+        column.entities = await this.readEntities(x, z, cver)
+        column.tiles = await this.readBlockEntities(x, z, cver)
+        const data2d = await this.readBiomesAndElevation(x, z, cver)
+        column.biomes = new Uint8Array(data2d.biomes2d)
+        column.heights = new Uint16Array(data2d.heightmap)
+      }
+
+      return column
+    }
+  }
+
+
+  async networkEncode(x: int, z: int, version: Version) {
+    const column = await this.load(x, z, false)
+    if (column) {
+      const { biomes2d } = await this.readBiomesAndElevation(x, z, column.version)
+      const tiles = await this.get(KeyBuilder.buildBlockEntityKey(x, z, this.dimension)) || Buffer.from([0])
+      const borderBlocks = Buffer.from([0])
+      // DragonFly just writes the Data2D to its entirity here
+      // const extradata = Buffer.from([0]) // ??
+      return Buffer.concat([
+        await column.networkEncode(false),
+        biomes2d,
+        borderBlocks,
+        tiles
+      ])
     }
   }
 
@@ -138,139 +199,7 @@ export class WorldProvider {
   }
 
   async getKeys(): Promise<KeyData[]> {
-    return WorldProvider.recurseMinecraftKeys(this.db)
-  }
-
-  static async recurseMinecraftKeys(db) {
-    /* eslint-disable */
-    function readKey(buffer: Buffer): KeyData[] {
-      let offset = 0
-      let read: KeyData[] = []
-
-      let ksize = buffer.length
-      // console.log(ksize)
-      if (ksize >= 8) {
-        let cx = buffer.readInt32LE(0)
-        let cz = buffer.readInt32LE(4)
-        let tagOver = buffer[8]
-        let tagWithDim = buffer[12]
-
-        let dim = 0
-
-        let overworld = ksize == 9
-        let otherDim = ksize == 13
-
-        if (otherDim) {
-          dim = buffer.readInt32LE(8)
-        }
-
-        // console.log('good', cx, cz, tagOver, tagWithDim, dim, overworld, otherDim)
-
-        if (overworld && tagOver == Tag.VersionNew) {
-          // Version 1.16.100+
-          read.push({ x: cx, z: cz, dim: 0, tagId: tagOver, type: 'version', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.VersionNew) {
-          // Version
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'version', key: buffer })
-        } else if (ksize == 10 && tagOver == Tag.SubChunkPrefix) {
-          // Overworld chunk with subchunk
-          let cy = buffer.readInt8(1 + 8)
-          read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagOver, type: 'chunk', key: buffer })
-        } else if (ksize == 14 && tagWithDim == Tag.SubChunkPrefix) {
-          // let dim = buffer.readInt32LE(offset += 4)
-          let cy = buffer.readInt8(1 + 8 + 4)
-          read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagWithDim, type: 'chunk', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.Data2D) {
-          // biomes and elevation for other dimensions
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer })
-        } else if (overworld && tagOver == Tag.Data2D) {
-          // biomes + elevation for overworld
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.Entity) {
-          // enities for dim
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer })
-        } else if (overworld && tagOver == Tag.Entity) {
-          // entities for overworld
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.BlockEntity) {
-          // block entities for dim
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer })
-        } else if (overworld && tagOver == Tag.BlockEntity) {
-          // block entities for overworld
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer })
-        } else if (overworld && tagOver == Tag.FinalizedState) {
-          // finalized state overworld chunks
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.FinalizedState) {
-          // finalized state for other dimensions
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer })
-        } else if (overworld && tagOver == Tag.VersionOld) {
-          // version for pre 1.16.100
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.VersionOld) {
-          // version for pre 1.16.100
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.HardCodedSpawnAreas) {
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer })
-        } else if (overworld && tagOver == Tag.HardCodedSpawnAreas) {
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.BiomeState) {
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer })
-        } else if (overworld && tagOver == Tag.BiomeState) {
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer })
-        } else if (overworld && tagOver == Tag.PendingTicks) {
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-        } else if (otherDim && tagWithDim == Tag.PendingTicks) {
-          read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-        }
-
-        if (!read.length) {
-          console.log(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim)
-
-          read.push({ x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer })
-        }
-      }
-      let skey = String(buffer)
-      if (skey.includes('VILLAGE')) {
-        if (skey.includes('DWELLERS')) {
-          read.push({ type: 'village-dwellers', skey: skey, key: buffer })
-        } else if (skey.includes('INFO')) {
-          read.push({ type: 'village-info', skey: skey, key: buffer })
-        } else if (skey.includes('POI')) {
-          read.push({ type: 'village-poi', skey: skey, key: buffer })
-        } else if (skey.includes('PLAYERS')) {
-          read.push({ type: 'village-players', skey: skey, key: buffer })
-        }
-      }
-
-      if (!read.length) {
-        read.push({ type: 'unknown', skey: String(buffer), key: buffer })
-      }
-
-      return read
-    }
-
-    if (!db || !db.isOpen()) {
-      return []
-    }
-
-    const out = []
-
-    const iter = db.getIterator({ values: true })
-    let entry = null
-    console.log('Iterator entries:')
-    while (entry = await iter.next()) { // eslint-disable-line
-      // console.log('[mc] readKey: ', entry, entry[0].length)
-      const read = readKey(entry[0])
-      out.push(read)
-      // if (read.length) {
-      //   console.log(JSON.stringify(read))
-      // } else {
-      //   // console.log('Extranenous: ', entry[1])
-      // }
-    }
-    await iter.end()
-    return out
+    return recurseMinecraftKeys(this.db)
   }
 }
 
@@ -288,7 +217,49 @@ async function test() {
     // console.log(key.type)
     if (key.type == 'version') {
       console.log('version', key.x, key.z, key.key)
-      let cc = await wp.load(key.x, key.z)
+
+      const cc = await wp.load(key.x, key.z, true)
+      // console.log('cc', cc)
+
+      // await wp.networkEncode(key.x, key.z, Version.v17_0)
+
+      const buf = await cc.networkEncode(true)
+      console.log('ENCODED BUFFER', buf.toString('hex'))
+      const cc2 = new ChunkColumn(cc.version, key.x, key.z)
+      await cc2.networkDecode(buf, 1)
+
+      // for (var x = 0; x < 16; x++) {
+      //   for (var y = 0; y < 16; y++) {
+      //     for (var z = 0; z < 16; z++) {
+      //       if (cc.getBlock(x,y,z).stateId != cc2.getBlock(x,y,z).stateId) {
+      //         console.log('Block mismatch', cc.getBlock(x,y,z), cc2.getBlock(x,y,z))
+      //         throw 'Block mismatch'
+      //       }
+      //     }
+      //   }
+      // }
+
+      // throw 1;
+      const buf2 = await cc2.networkEncode(true)
+
+      if (buf.toString('hex') !== buf2.toString('hex')) {
+        console.log(buf.toString('hex'))
+        console.log(buf2.toString('hex'))
+        throw Error('encode mismatch')
+      }
+
+      // console.log('Network serialized', await wp.networkEncode(key.x, key.z, Version.v17_0))
+
+
+      // // const entities = await wp.readEntities(key.x, key.z, Version.v17_0)
+      // const tiles = await wp.readBlockEntities(key.x, key.z, Version.v17_0)
+      // const biomesAndElevation = await wp.readBiomesAndElevation(key.x, key.z, Version.v17_0)
+
+      // const border = await wp.readBorderBlocks(key.x, key.z, Version.v17_0)
+
+      // console.log('Biomes and elevation', biomesAndElevation)
+      // console.log('Border', border)
+      // let cc = await wp.load(key.x, key.z)
 
       // for (var x = 0; x < 4; x++) {
       //   for (var y = 0; y < 4; y++) {
@@ -303,7 +274,7 @@ async function test() {
       // }
 
       // await wp.save(cc)
-      break
+      // break
     }
   }
   console.log(globalThis.ckeys)

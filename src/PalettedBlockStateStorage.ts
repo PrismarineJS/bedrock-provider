@@ -1,6 +1,6 @@
 // https://gist.github.com/extremeheat/c1be82ab4a1c5eb5945de5d98b520eb3
 
-import BinaryStream from "@jsprismarine/jsbinaryutils"
+import { Stream } from "./Stream"
 
 const wordByteSize: int = 4
 const wordBitSize: int = wordByteSize * 8
@@ -22,13 +22,18 @@ export class PalettedBlockStateStorage {
     this.array = new Uint32Array(this.wordsCount)
   }
 
-  read(stream: BinaryStream) {
+  read(stream: Stream) {
     let buf = stream.read(this.wordsCount * wordByteSize)
-    this.array = Uint32Array.from(buf)
+    console.log('buf',buf)
+    this.array = new Uint32Array(new Uint8Array(buf).buffer)
   }
 
-  write(stream: BinaryStream) {
+  write(stream: Stream) {
     stream.append(Buffer.from(this.array.buffer))
+  }
+
+  getBuffer() {
+    return Buffer.from(this.array.buffer)
   }
 
   readBits(index, offset) {
