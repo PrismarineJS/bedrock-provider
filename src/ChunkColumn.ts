@@ -1,11 +1,12 @@
 
 /// <reference path="./global.d.ts" />
-import { Version } from "./format";
+import { Version, getChecksum } from "./format";
 import { BlockFactory } from './BlockFactory'
 import { Block } from "prismarine-block";
-import { SubChunk } from './SubChunk'
+import { StorageType, SubChunk } from './SubChunk'
 import nbt, { NBT } from "prismarine-nbt";
 import { Stream } from './Stream'
+import { BlobEntry, BlobStore, BlobType } from "./Blob";
 
 const MIN_Y = 0
 const MAX_Y = 15
@@ -26,7 +27,7 @@ export class ChunkColumn {
   minY = MIN_Y
   maxY = MAX_Y
 
-  updated = false
+  biomesUpdated = true
   hash: Buffer | null
 
   constructor(version: Version, x, z) {
@@ -54,7 +55,6 @@ export class ChunkColumn {
       this.addSection(new SubChunk(this.version))
       sec = this.sections[this.minY + y]
     }
-    this.updated = true
     return sec.setBlock(sx, sy & 0xf, sz, block)
   }
 
@@ -95,55 +95,94 @@ export class ChunkColumn {
   }
 
   setBiome(x, y, z, biome) {
-    this.updated = true
+    this.biomesUpdated = true
   }
 
-  updateHash(fromBuffer): Buffer {
-    this.updated = false
-    this.hash = Buffer.from([Math.random()])
+  async updateHash(fromBuf: Buffer | Uint8Array): Promise<Buffer> {
+    this.biomesUpdated = false
+    this.hash = await getChecksum(fromBuf)
+    return this.hash
+  }
+
+  async getHash() {
     return this.hash
   }
 
   /**
-   * Encodes this chunk column for the network
-   * @param full Include block entities and biomes
+   * Encodes this chunk column for the network with no caching
+   * @param buffer Full chunk buffer
    */
-  async networkEncode(full = true): Promise<Buffer> {
-    if (full) {
-      const tileBufs = []
-      for (const key in this.tiles) {
-        const tile = this.tiles[key]
-        tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
+  async networkEncodeNoCache(): Promise<Buffer> {
+    const tileBufs = []
+    for (const key in this.tiles) {
+      const tile = this.tiles[key]
+      tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
+    }
+    const biomeBuf = this.biomes.length ? Buffer.from(this.biomes) : Buffer.allocUnsafe(256)
+    const sectionBufs = []
+    for (const section of this.sections) {
+      sectionBufs.push(await section.encode(this.version, StorageType.Runtime))
+    }
+    return Buffer.concat([
+      ...sectionBufs,
+      biomeBuf,
+      Buffer.from([0]), // border blocks
+      ...tileBufs
+    ])
+  }
+
+  /**
+   * Encodes this chunk column for use over network with caching enabled
+   * 
+   * @param blobStore The blob store to write chunks in this section to
+   * @returns {Promise<Buffer[]>} The blob hashes for this chunk, the last one is biomes, rest are sections
+   */
+  async networkEncodeBlobs(blobStore: BlobStore): Promise<CCHash[]> {
+    const blobHashes = [] as CCHash[]
+    for (const section of this.sections) {
+      const key = `${this.x},${section.y},${this.z}`
+      if (section.updated || !blobStore.read(section.hash)) {
+        const buffer = await section.encode(this.version, StorageType.NetworkPersistence)
+        const blob = new BlobEntry({ x: this.x, y: section.y, z: this.z, type: BlobType.ChunkSection, buffer })
+        blobStore.write(section.hash, blob)
       }
-      const biomeBuf = this.biomes.length ? Buffer.from(this.biomes) : Buffer.allocUnsafe(256)
-      const sectionBufs = []
-      for (const section of this.sections) {
-        sectionBufs.push(section.networkEncode(this.version))
-      }
-      if (this.updated) this.updateHash(Buffer.concat([...sectionBufs, biomeBuf]))
-      return Buffer.concat([
-        ...sectionBufs,
-        biomeBuf,
+      blobHashes.push({ hash: section.hash, type: BlobType.ChunkSection })
+    }
+    if (this.biomesUpdated || !blobStore.read(this.hash)) {
+      if (!this.biomes) this.biomes = new Uint8Array(256)
+      this.updateHash(this.biomes)
+      this.biomesUpdated = false
+      blobStore.write(this.hash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes }))
+    }
+    blobHashes.push({ hash: this.hash, type: BlobType.Biomes })
+    return blobHashes
+  }
+
+  async networkEncode(blobStore: BlobStore) {
+    const blobs = this.networkEncodeBlobs(blobStore)
+    const tileBufs = []
+    for (const key in this.tiles) {
+      const tile = this.tiles[key]
+      tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
+    }
+
+    return {
+      blobs, // cache blobs
+      payload: Buffer.concat([ // non-cached stuff
         Buffer.from([0]), // border blocks
         ...tileBufs
       ])
-    } else {
-      const sectionBufs = []
-      for (const section of this.sections) {
-        sectionBufs.push(section.networkEncode(this.version))
-      }
-      return Buffer.concat(sectionBufs)
     }
   }
 
-  async networkDecode(buffer: Buffer, sectionCount: number) {
+  async networkDecodeNoCache(buffer: Buffer, sectionCount: number) {
     const stream = new Stream(buffer)
     this.sections = []
     // console.warn('Total Reading', sectionCount)
     for (let i = 0; i < sectionCount; i++) {
       // console.warn('Reading', i)
       const section = new SubChunk(this.version)
-      section.decode(stream, true)
+      section.decode(StorageType.Runtime, stream)
       this.sections.push(section)
     }
     this.biomes = new Uint8Array(stream.read(256))
@@ -159,4 +198,48 @@ export class ChunkColumn {
       this.addBlockEntity(parsed)
     }
   }
+
+  /**
+   * Decodes cached chunks sent over the network
+   * @param blobs The blob hashes sent in the Chunk packe
+   * @param blobStore Our blob store for cached data
+   * @param {Buffer} payload The rest of the non-cached data
+   * @returns {CCHash[]} A list of hashes we don't have and need. If len > 0, decode failed.
+   */
+  async networkDecode(blobs: CCHash[], blobStore: BlobStore, payload): Promise<CCHash[]> {
+    const stream = new Stream(payload)
+    const borderblocks = stream.read(stream.readByte())
+    if (borderblocks.length) console.debug('[wp] Skip ', borderblocks, 'bytes')
+
+    payload.startOffset = stream.getOffset()
+    while (stream.peek() == 0x0A) {
+      const { parsed, metadata } = await nbt.parse(payload, 'littleVarint')
+      stream.offset += metadata.size
+      payload.startOffset += metadata.size
+      this.addBlockEntity(parsed)
+    }
+
+    const misses = [] as CCHash[]
+    for (const blob of blobs) {
+      if (!blobStore.has(blob.hash)) {
+        misses.push(blob)
+      }
+    }
+    if (misses.length > 0) {
+      // missing stuff, call this again once the server replies with our MISSing
+      // blobs and don't try to load this column until we have all the data
+      return misses
+    }
+    this.sections = []
+    this.sectionsLen = 0
+    for (const blob of blobs) {
+      const buf = blobStore.read(blob.hash)
+      const subchunk = new SubChunk(this.version, buf, this.sectionsLen)
+      subchunk.decode(StorageType.NetworkPersistence)
+      this.addSection(subchunk)
+    }
+    return misses
+  }
 }
+
+type CCHash = { type: BlobType, hash: Buffer }

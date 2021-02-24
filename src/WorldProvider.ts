@@ -1,7 +1,7 @@
 import { LevelDB } from 'leveldb-zlib'
 import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './format'
 import { ChunkColumn } from './ChunkColumn'
-import { SubChunk } from './SubChunk'
+import { StorageType, SubChunk } from './SubChunk'
 import NBT from 'prismarine-nbt'
 import BinaryStream from '@jsprismarine/jsbinaryutils'
 
@@ -44,7 +44,7 @@ export class WorldProvider {
         let chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
         const subchunk = new SubChunk(version, chunk, y)
-        subchunk.decode() // Note: we don't wait for it to finish decoding here
+        subchunk.decode(StorageType.LocalPersistence) // Note: we don't wait for it to finish decoding here
         cc.addSection(subchunk)
 
         // console.log('RAW CHUNK', chunk.toString('hex'))
@@ -126,7 +126,7 @@ export class WorldProvider {
     return null
   }
 
-  writeSubChunks(column: ChunkColumn): Promise<any> {
+  async writeSubChunks(column: ChunkColumn): Promise<any> {
     let formatVer = column.version
     // let sections = column.getSections()
     let promises = []
@@ -139,7 +139,7 @@ export class WorldProvider {
         }
         globalThis.ckeys.push('save:')
         let key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
-        let buf = section.encode(formatVer)
+        let buf = await section.encode(formatVer, StorageType.LocalPersistence)
         promises.push(this.db.put(key, buf))
       }
     }
@@ -178,28 +178,32 @@ export class WorldProvider {
   }
 
 
-  async networkEncode(x: int, z: int, version: Version, hash): Promise<{ buffer: Buffer, hash?: Buffer } | null> {
-    const column = await this.load(x, z, false)
-    if (column) {
-      const { biomes2d } = await this.readBiomesAndElevation(x, z, column.version)
-      const tiles = await this.get(KeyBuilder.buildBlockEntityKey(x, z, this.dimension)) || Buffer.from([0])
-      const borderBlocks = Buffer.from([0])
-      // DragonFly just writes the Data2D to its entirity here
-      // const extradata = Buffer.from([0]) // ??
-      const sections = await column.networkEncode(false)
-      return {
-        hash: hash ? column.updateHash(Buffer.concat) : undefined,
-        buffer: Buffer.concat([
-          sections,
-          biomes2d,
-          borderBlocks,
-          tiles
-        ])
-      }
-    } else {
-      return null
-    }
-  }
+  // async networkEncode(x: int, z: int, version: Version, hash): Promise<{ buffer: Buffer, hash?: Buffer } | null> {
+  //   const column = await this.load(x, z, false)
+  //   if (column) {
+  //     const { biomes2d } = await this.readBiomesAndElevation(x, z, column.version)
+  //     const tiles = await this.get(KeyBuilder.buildBlockEntityKey(x, z, this.dimension)) || Buffer.from([0])
+  //     const borderBlocks = Buffer.from([0])
+  //     // DragonFly just writes the Data2D to its entirity here
+  //     // const extradata = Buffer.from([0]) // ??
+  //     const sectionBufs = []
+  //     for (const section of this.sections) {
+  //       sectionBufs.push(section.networkEncode(this.version))
+  //     }
+  //     const sections = await column.networkEncode(false)
+  //     return {
+  //       hash: hash ? column.updateHash(Buffer.concat) : undefined,
+  //       buffer: Buffer.concat([
+  //         sections,
+  //         biomes2d,
+  //         borderBlocks,
+  //         tiles
+  //       ])
+  //     }
+  //   } else {
+  //     return null
+  //   }
+  // }
 
   async save(column: ChunkColumn) {
     return this.writeSubChunks(column)
@@ -232,10 +236,10 @@ async function test() {
 
       // await wp.networkEncode(key.x, key.z, Version.v17_0)
 
-      const buf = await cc.networkEncode(true)
+      const buf = await cc.networkEncodeNoCache()
       console.log('ENCODED BUFFER', buf.toString('hex'))
       const cc2 = new ChunkColumn(cc.version, key.x, key.z)
-      await cc2.networkDecode(buf, 1)
+      await cc2.networkDecodeNoCache(buf, 1)
 
       // for (var x = 0; x < 16; x++) {
       //   for (var y = 0; y < 16; y++) {
@@ -249,7 +253,7 @@ async function test() {
       // }
 
       // throw 1;
-      const buf2 = await cc2.networkEncode(true)
+      const buf2 = await cc2.networkEncodeNoCache()
 
       if (buf.toString('hex') !== buf2.toString('hex')) {
         console.log(buf.toString('hex'))

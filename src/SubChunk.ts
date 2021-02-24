@@ -3,8 +3,16 @@ import nbt from 'prismarine-nbt'
 import { PalettedBlockStateStorage } from "./PalettedBlockStateStorage";
 import { BlockFactory } from './BlockFactory'
 import { Block } from "prismarine-block";
+import { getChecksum } from './format'
 
 const LOG = (...args) => console.debug('[cc]', ...args)
+
+// See the Blob docs for details
+export enum StorageType {
+  LocalPersistence,
+  NetworkPersistence,
+  Runtime
+}
 
 export class SubChunk {
   columnVersion: number
@@ -17,6 +25,9 @@ export class SubChunk {
   rebuildPalette: boolean
 
   lastSetBlockId
+
+  updated = true
+  hash: Buffer
 
   /**
    * Create a SubChunk
@@ -38,7 +49,7 @@ export class SubChunk {
     }
   }
 
-  async decode(stream = new Stream(this.buffer), expectNetwork = false) {
+  async decode(format: StorageType, stream = new Stream(this.buffer)) {
     this.sectionVersion = 0
 
     // version
@@ -53,25 +64,23 @@ export class SubChunk {
     let usingNetworkRuntimeIds = paletteType & 1
     // console.warn('! DCODED with palette type ', paletteType, storageCount)
 
-    if (!usingNetworkRuntimeIds && expectNetwork) {
-      throw Error('Expected over network')
+    if (!usingNetworkRuntimeIds && (format !== StorageType.LocalPersistence)) {
+      throw new Error('Expected network encoding while decoding SubChunk at y='+ this.y)
     }
 
     for (let i = 0; i < storageCount; i++) {
-      // if (i != 0)
-      // continue; // We don't support 1.4 yet! Need to support multiple palettes
       let bitsPerBlock = paletteType >> 1;
       // console.warn('! DECODE BITSPER ', bitsPerBlock)
 
-      await this.loadPalettedBlocks(i, stream, bitsPerBlock, !!usingNetworkRuntimeIds)
+      await this.loadPalettedBlocks(i, stream, bitsPerBlock, format)
     }
   }
 
-  async loadPalettedBlocks(storage: int, stream: Stream, bitsPerBlock: byte, networkRuntimeIds: boolean) {
+  async loadPalettedBlocks(storage: int, stream: Stream, bitsPerBlock: byte, format: StorageType) {
     let bsc = new PalettedBlockStateStorage(bitsPerBlock)
     bsc.read(stream)
 
-    let paletteSize = networkRuntimeIds ? stream.readVarInt() : stream.readLInt()
+    let paletteSize = format == StorageType.LocalPersistence ? stream.readLInt() : stream.readVarInt() 
     // console.warn('Palette size is', paletteSize, stream.getOffset(), stream.getBuffer().length)
     this.blocks.push(new Uint16Array(4096))
     // unsigned int size
@@ -79,11 +88,11 @@ export class SubChunk {
 
     // LOG("Pos is: %d\n", stream.tellg());
 
-    if (networkRuntimeIds) {
-      await this.loadNetworkPalette(storage, stream, paletteSize)
+    if (format == StorageType.Runtime) {
+      await this.loadRuntimePalette(storage, stream, paletteSize)
     } else {
       // (for persistence) N NBT tags: The palette entries, as PersistentIDs. You should read the "name" and "val" fields to figure out what blocks it represents.
-      await this.loadLocalPalette(storage, stream, paletteSize);
+      await this.loadLocalPalette(storage, stream, paletteSize, format == StorageType.NetworkPersistence)
     }
     // console.warn('Palete', JSON.stringify(this.palette))
     // console.log('Palete', storage, bitsPerBlock, this.palette)
@@ -112,7 +121,7 @@ export class SubChunk {
     }
   }
 
-  async loadNetworkPalette(storage: int, stream: Stream, length: int) {
+  async loadRuntimePalette(storage: int, stream: Stream, length: int) {
     while (this.palette.length <= storage) this.palette.push([])
 
     for (let i = 0; i < length; i++) {
@@ -131,37 +140,22 @@ export class SubChunk {
     }
   }
 
-  async loadLocalPalette(storage: int, stream: Stream, length: int) {
+  async loadLocalPalette(storage: int, stream: Stream, length: int, overNetwork: boolean) {
     while (this.palette.length <= storage) this.palette.push([])
-    // console.log(this.palette.length, storage)
-    // let nextByte: byte = 0
-    // const Skipped = []
-    // while (stream.peek() != 0x0A) {
-    //   LOG('Stream.peek', stream.peek())
-    //   if (stream.peek() == '\0')
-    //     return
-    //   nextByte = stream.readByte()
-    //   LOG("Skipped byte: %d", nextByte)
-    //   Skipped.push(nextByte)
-    // }
-    // if (Skipped.length) {
-    //   console.warn(Skipped)
-    //   throw Error("Skipped")
-    // }
     let i = 0
     let buf = stream.getBuffer()
     buf.startOffset = stream.getOffset()
 
     LOG('Stream.peek 2', stream.peek())
     while (stream.peek() == 0x0A) {
-      const { parsed, metadata } = await nbt.parse(buf, 'little')
+      const { parsed, metadata } = await nbt.parse(buf, overNetwork ? 'littleVarint' : 'little')
       // console.log('Reading NBT', parsed, metadata)
       stream.offset += metadata.size // BinaryStream
       buf.startOffset += metadata.size // Buffer
 
       // see A) for example schema
       let name = parsed.value.name.value as string
-      let states: object = parsed.value.states
+      let states = parsed.value.states
       let version = parsed.value.version.value as number
       // if (typeof version == 'object') version = version[1] // temp
       // console.log(result)
@@ -180,10 +174,14 @@ export class SubChunk {
     console.assert(i == length);
   }
 
-  encode(formatVersion): Buffer {
+  async encode(formatVersion, storageFormat: StorageType): Promise<Buffer> {
     let stream = new Stream()
-    this.encode130(stream)
-    return stream.getBuffer()
+    this.encode130(stream, storageFormat)
+    const buf = stream.getBuffer()
+    if (storageFormat == StorageType.NetworkPersistence) {
+      this.hash = await getChecksum(buf)
+    }
+    return buf
   }
 
   /**
@@ -191,7 +189,7 @@ export class SubChunk {
    * @param stream Stream to write chunk data to
    * @param overNetwork encode with varints
    */
-  private encode130(stream: Stream, overNetwork = false) {
+  private encode130(stream: Stream, format: StorageType) {
     stream.writeByte(8) // write the chunk version
     stream.writeByte(this.blocks.length)
     for (let l = 0; l < this.blocks.length; l++) {
@@ -201,42 +199,33 @@ export class SubChunk {
 
       let palsize: int = palette.length;
       let bitsPerBlock: byte = Math.ceil(Math.log2(palsize))
-      let over_network = overNetwork ? 1 : 0
+      let runtimeSerialization = format == StorageType.Runtime ? 1 : 0
 
       if (bitsPerBlock > 8) {
         bitsPerBlock = 16;
       }
 
-      palette_type = (bitsPerBlock << 1) | over_network
+      palette_type = (bitsPerBlock << 1) | runtimeSerialization
       // console.warn('! ENCODED with palette type ', palette_type, bitsPerBlock)
       stream.writeByte(palette_type)
 
       let bss = this.toCompressedSubChunk(l, bitsPerBlock)
       bss.write(stream)
 
-      if (overNetwork) {
+      if (runtimeSerialization) {
         stream.writeVarInt(palsize)
-        stream.append(this.exportNetworkPalette(l))
+        stream.append(this.exportRuntimePalette(l))
       } else {
         stream.writeLInt(palsize)
         // Builds JS pallete array to be serialized to NBT
         const p = this.exportLocalPalette(l)
         for (let tag of p) {
           console.log('Saving', JSON.stringify(tag))
-          let buf = nbt.writeUncompressed(tag, overNetwork ? 'littleVarint' : 'little')
+          let buf = nbt.writeUncompressed(tag, format == StorageType.LocalPersistence ? 'little' : 'littleVarint')
           stream.append(buf)
         }
       }
     }
-  }
-
-  /**
-   * Encodes this SubChunk for use over network using VarInts
-   */
-  networkEncode(subChunkVer) {
-    let stream = new Stream()
-    this.encode130(stream, true)
-    return stream.getBuffer()
   }
 
   setBlock(x: int, y: int, z: int, block: Block) {
@@ -299,6 +288,8 @@ export class SubChunk {
   }
 
   setBlockID(l, x, y, z, runtimeId: int) {
+    this.updated = true
+
     // TODO: removing from palete
     if (this.lastSetBlockId?.id == runtimeId) {
       // console.log('Setting', ((x << 8) | (z << 4) | y), 'to', this.lastSetBlockId)
@@ -319,39 +310,19 @@ export class SubChunk {
   toCompressedSubChunk(l, bitsPerBlock) {
     let bss = new PalettedBlockStateStorage(bitsPerBlock);
 
-    // let pushed = []
-
     for (let x = 0; x <= 0xf; x++) {
       for (let y = 0; y <= 0xf; y++) {
         for (let z = 0; z <= 0xf; z++) {
           let localIndex = this.blocks[l][((x << 8) | (z << 4) | y)]
           bss.setBlockStateAt(x, y, z, localIndex)
-          // pushed.push(localIndex)
-          // console.log('*SET1',this.y,x,y,z,localIndex)
-
-          // if (bss.getBlockStateAt(x,y,z) !== localIndex) {
-          //   throw 'BSS write failed'
-          // }
         }
       }
     }
-    // for (let x = 0; x <= 0xf; x++) {
-    //   for (let y = 0; y <= 0xf; y++) {
-    //     for (let z = 0; z <= 0xf; z++) {
-    //       let localIndex: int = bss.getBlockStateAt(x, y, z)
-    //       const expected = pushed.shift()
-    //       console.log('*GET1',this.y, x,y,z,localIndex)
-    //       if (expected != localIndex) {
-    //         throw Error('BSS failed')
-    //       }
-    //     }
-    //   }
-    // }
 
     return bss
   }
 
-  exportNetworkPalette(l: int): Buffer {
+  exportRuntimePalette(l: int): Buffer {
     const stream = new Stream()
     for (let i = 0; i < this.palette[l].length; i++) {
       let e = this.palette[l][i]
