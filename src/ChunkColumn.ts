@@ -145,6 +145,7 @@ export class ChunkColumn {
         const buffer = await section.encode(this.version, StorageType.NetworkPersistence)
         const blob = new BlobEntry({ x: this.x, y: section.y, z: this.z, type: BlobType.ChunkSection, buffer })
         blobStore.write(section.hash, blob)
+        // console.log('WROTE BLOB', blob)
       }
       blobHashes.push({ hash: section.hash, type: BlobType.ChunkSection })
     }
@@ -152,14 +153,14 @@ export class ChunkColumn {
       if (!this.biomes) this.biomes = new Uint8Array(256)
       this.updateHash(this.biomes)
       this.biomesUpdated = false
-      blobStore.write(this.hash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes }))
+      blobStore.write(this.hash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes, buffer: this.biomes }))
     }
     blobHashes.push({ hash: this.hash, type: BlobType.Biomes })
     return blobHashes
   }
 
   async networkEncode(blobStore: BlobStore) {
-    const blobs = this.networkEncodeBlobs(blobStore)
+    const blobs = await this.networkEncodeBlobs(blobStore)
     const tileBufs = []
     for (const key in this.tiles) {
       const tile = this.tiles[key]
@@ -233,11 +234,19 @@ export class ChunkColumn {
     this.sections = []
     this.sectionsLen = 0
     for (const blob of blobs) {
-      const buf = blobStore.read(blob.hash)
-      const subchunk = new SubChunk(this.version, buf, this.sectionsLen)
-      subchunk.decode(StorageType.NetworkPersistence)
-      this.addSection(subchunk)
+      const entry = blobStore.read(blob.hash)
+      // console.log('BUF',entry)
+      if (entry.type == BlobType.Biomes) {
+        this.biomes = entry.buffer
+      } else if (entry.type == BlobType.ChunkSection) {
+        const subchunk = new SubChunk(this.version, this.sectionsLen)
+        subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
+        this.addSection(subchunk)
+      } else {
+        throw Error(`Unknown blob type: ` + entry.type)
+      }
     }
+
     return misses
   }
 }

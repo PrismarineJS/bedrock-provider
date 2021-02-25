@@ -17,7 +17,7 @@ export class BlobEntry {
   type = BlobType.ChunkSection
   key: string
   created = Date.now()
-  constructor(...args) {
+  constructor(args) {
     Object.assign(this, args)
   }
 }
@@ -31,10 +31,11 @@ export class BlobStore extends Map {
   size: number
   backend: Backend
   backendPath: string
+  cacheSize: number
 
   constructor(size = 64) {
     super()
-    this.size = size
+    this.cacheSize = size
     //this.backendPath = path
   }
 
@@ -61,7 +62,7 @@ export class BlobStore extends Map {
     this.set(key, value)
   }
 
-  read(key: string | Buffer) {
+  read(key: string | Buffer): BlobEntry | any {
     if (key instanceof Uint8Array) {
       key = key.toString('hex')
     }

@@ -5,7 +5,8 @@ import { BlockFactory } from './BlockFactory'
 import { Block } from "prismarine-block";
 import { getChecksum } from './format'
 
-const LOG = (...args) => console.debug('[cc]', ...args)
+const LOG = (...args) => { }
+// console.debug('[cc]', ...args)
 
 // See the Blob docs for details
 export enum StorageType {
@@ -20,7 +21,8 @@ export class SubChunk {
   y: number
   blocks: Uint16Array[]
   buffer?: Buffer
-  palette: { globalIndex: short, name: string, states: object, version: number }[][]
+  // palette: { globalIndex: short, name: string, states: object, version: number }[][]
+  palette2: Map<number, { globalIndex: short, name: string, states: object, version: number }>[]
 
   rebuildPalette: boolean
 
@@ -35,21 +37,15 @@ export class SubChunk {
    * @param buffer 
    * @param y 
    */
-  constructor(columnVersion: number, buffer?: Buffer, y = 0) {
+  constructor(columnVersion: number, y = 0) {
     this.columnVersion = columnVersion
     this.y = y
-    this.palette = []
+    this.palette2 = []
     this.blocks = []
-    if (buffer) {
-      this.buffer = buffer
-    } else {
-      // init empty layer 0
-      // this.blocks.push(new Uint16Array(4096))
-      this.palette.push([])
-    }
+    this.blocks.push(new Uint16Array(4096))
   }
 
-  async decode(format: StorageType, stream = new Stream(this.buffer)) {
+  async decode(format: StorageType, stream: Stream) {
     this.sectionVersion = 0
 
     // version
@@ -64,8 +60,9 @@ export class SubChunk {
     let usingNetworkRuntimeIds = paletteType & 1
     // console.warn('! DCODED with palette type ', paletteType, storageCount)
 
-    if (!usingNetworkRuntimeIds && (format !== StorageType.LocalPersistence)) {
-      throw new Error('Expected network encoding while decoding SubChunk at y='+ this.y)
+    if (!usingNetworkRuntimeIds && (format === StorageType.Runtime)) {
+      console.log(usingNetworkRuntimeIds, format)
+      throw new Error('Expected network encoding while decoding SubChunk at y=' + this.y)
     }
 
     for (let i = 0; i < storageCount; i++) {
@@ -77,12 +74,14 @@ export class SubChunk {
   }
 
   async loadPalettedBlocks(storage: int, stream: Stream, bitsPerBlock: byte, format: StorageType) {
+    while (this.blocks.length <= storage) this.blocks.push(new Uint16Array(4096))
     let bsc = new PalettedBlockStateStorage(bitsPerBlock)
     bsc.read(stream)
 
-    let paletteSize = format == StorageType.LocalPersistence ? stream.readLInt() : stream.readVarInt() 
+    let paletteSize = format == StorageType.LocalPersistence ? stream.readLInt() : stream.readVarInt()
+    if (paletteSize > stream.getBuffer().length || paletteSize < 1)
+      throw new Error(`Invalid palette size: ${paletteSize}`)
     // console.warn('Palette size is', paletteSize, stream.getOffset(), stream.getBuffer().length)
-    this.blocks.push(new Uint16Array(4096))
     // unsigned int size
     // stream.read((char*)&size, 4);
 
@@ -95,34 +94,41 @@ export class SubChunk {
       await this.loadLocalPalette(storage, stream, paletteSize, format == StorageType.NetworkPersistence)
     }
     // console.warn('Palete', JSON.stringify(this.palette))
-    // console.log('Palete', storage, bitsPerBlock, this.palette)
-    // process.exit(0)
+    // console.log('Palete', format, paletteSize, storage, bitsPerBlock, this.palette)
+    // console.log(stream.getBuffer().toString('hex'))
 
-    const palette = this.palette[storage]
+    const palette = this.palette2[storage]
 
     // console.log('bsc', bsc.getBuffer().toString('hex'))
+
+    // Map a serialized palette index to our internal palette index
+    const map = new Array(paletteSize)
+    let count = 0
+    for (const [globalKey] of palette) {
+      map[count++] = globalKey
+    }
 
     for (let x = 0; x <= 0xf; x++) {
       for (let y = 0; y <= 0xf; y++) {
         for (let z = 0; z <= 0xf; z++) {
           let localIndex: int = bsc.getBlockStateAt(x, y, z)
           // console.log('*GET',this.y, x,y,z,localIndex)
-          console.assert(!(localIndex >= palette.length));
-          if (localIndex >= palette.length) {
-            console.warn("ERROR: PalettedSubChunk: BLOCK AT %d, %d, %d is out of palette bounds! (%d/%d)\n", x, y, z, localIndex, palette.length)
+          console.assert(localIndex < count)
+          if (localIndex >= count) {
+            console.warn("ERROR: PalettedSubChunk: BLOCK AT %d, %d, %d is out of palette bounds! (%d/%d)\n", x, y, z, localIndex, count)
             this.blocks[storage][((x << 8) | (z << 4) | y)] = 0
             throw Error()
           }
           // let paletted_block = this.palette[bsv]
           // this.blocks[((x << 8) | (z << 4) | y)] = paletted_block.index
-          this.blocks[storage][((x << 8) | (z << 4) | y)] = localIndex
+          this.blocks[storage][((x << 8) | (z << 4) | y)] = map[localIndex]
         }
       }
     }
   }
 
   async loadRuntimePalette(storage: int, stream: Stream, length: int) {
-    while (this.palette.length <= storage) this.palette.push([])
+    while (this.palette2.length <= storage) this.palette2.push(new Map())
 
     for (let i = 0; i < length; i++) {
       let index = stream.readVarInt()
@@ -136,12 +142,12 @@ export class SubChunk {
       if (typeof version == 'object') version = version[1] // temp
 
       let mappedBlock = { globalIndex: index, name, states, version }
-      this.palette[storage].push(mappedBlock)
+      this.palette2[storage].set(index, mappedBlock)
     }
   }
 
   async loadLocalPalette(storage: int, stream: Stream, length: int, overNetwork: boolean) {
-    while (this.palette.length <= storage) this.palette.push([])
+    while (this.palette2.length <= storage) this.palette2.push(new Map())
     let i = 0
     let buf = stream.getBuffer()
     buf.startOffset = stream.getOffset()
@@ -162,7 +168,7 @@ export class SubChunk {
       let index = BlockFactory.getRuntimeID(name, states, version)
       // PaletteMappedBlockID mapped_block{ name, meta, index }
       let mappedBlock = { globalIndex: index, name, states, version }
-      this.palette[storage].push(mappedBlock)
+      this.palette2[storage].set(index, mappedBlock)
       i++;
     }
     delete buf.startOffset
@@ -193,11 +199,11 @@ export class SubChunk {
     stream.writeByte(8) // write the chunk version
     stream.writeByte(this.blocks.length)
     for (let l = 0; l < this.blocks.length; l++) {
-      console.log('Pal', l, this.palette, this.blocks)
-      let palette = this.palette[l]
+      console.log('Pal', l, this.palette2, this.blocks)
+      let palette = this.palette2[l]
       let palette_type = 0; // n >> 1 = bits per block, n & 1 = 0 for local palette
 
-      let palsize: int = palette.length;
+      let palsize: int = palette.size;
       let bitsPerBlock: byte = Math.ceil(Math.log2(palsize))
       let runtimeSerialization = format == StorageType.Runtime ? 1 : 0
 
@@ -212,11 +218,15 @@ export class SubChunk {
       let bss = this.toCompressedSubChunk(l, bitsPerBlock)
       bss.write(stream)
 
-      if (runtimeSerialization) {
+      if (format == StorageType.LocalPersistence) {
+        stream.writeLInt(palsize)
+      } else {
         stream.writeVarInt(palsize)
+      }
+
+      if (runtimeSerialization) {
         stream.append(this.exportRuntimePalette(l))
       } else {
-        stream.writeLInt(palsize)
         // Builds JS pallete array to be serialized to NBT
         const p = this.exportLocalPalette(l)
         for (let tag of p) {
@@ -232,11 +242,12 @@ export class SubChunk {
     // @ts-ignore
     let brid = block['brid'] || BlockFactory.getBRIDFromJSID(block.stateId || block.defaultState)
     this.setBlockID(0, x, y, z, brid)
-    console.log(`Setting ${x} ${y} ${z} layer 0 to ${brid}`, block)
+    // console.log(`Setting ${x} ${y} ${z} layer 0 to ${brid}`, block, this.palette2[0])
   }
 
   getBlock(x: int, y: int, z: int): Block {
     let block = this.getBlockID(0, x, y, z)
+    // console.log('block',block,this.palette2)
     let brid = block?.globalIndex || 0
     // console.log(`Got ${x} ${y} ${z} layer 0 to ${brid}`)
     let jsid = BlockFactory.getJSIDFromBRID(brid)
@@ -248,61 +259,55 @@ export class SubChunk {
       if (index != -1) {
         const new_jsid = BlockFactory.getJSIDFromBRID(index)
         pblock = BlockFactory.getPBlockFromStateID(new_jsid)
-        console.warn('remapped', block, new_jsid, pblock)
+        // console.warn('remapped', block, new_jsid, pblock)
       } else {
         console.warn(block)
-        throw 'Failed to remap'
+        throw Error('Failed to remap block')
       }
       pblock.name = block.name.replace('minecraft:', '')
       pblock.states = block.states
     }
     // store original BRID in Block object so we don't lose data during translation
     pblock.brid = brid
+    // console.log(x,y,z,block)
     pblock.bedrockVersion = block.version
     return pblock
   }
 
-  getIndexInPalette(l, runtimeId) {
-    for (let i = 0; i < this.palette.length; i++) {
-      if (this.palette[l][i]?.globalIndex == runtimeId) {
-        return i
-      }
-    }
-    return -1
-  }
+  // getIndexInPalette(l, runtimeId) {
+  //   const palette = this.palette2[l]
+  //   let i = 0
+  //   for (const globalIndex in palette) {
+  //     if (globalIndex == runtimeId) {
+  //       return i
+  //     }
+  //     i++
+  //   }
+  //   return -1
+  // }
 
   addToPalette(l, runtimeId, version = 0) {
+    while (this.palette2.length <= l) this.palette2.push(new Map())
     let state = BlockFactory.getBlockState(runtimeId)
     const ver = state.version[1] ? state.version[1] : state.version
-    this.palette[l].push({ globalIndex: runtimeId, name: state.name.value, states: state.states, version: ver })
-    console.log('Added to palette', JSON.stringify(this.palette[l]))
-    if (!state.name) throw 'No name!'
-    return this.palette[l].length - 1
+    this.palette2[l].set(runtimeId, { globalIndex: runtimeId, name: state.name.value, states: state.states, version: ver })
+    // console.log('Added to palette', l, JSON.stringify(this.palette2[l]))
+    if (!state.name) throw Error('Adding nameless block to palette')
   }
 
   getBlockID(l: int, x: int, y: int, z: int) {
-    let localIndex = this.blocks[l][((x << 8) | (z << 4) | y)]
-    let globalIndex = this.palette[l][localIndex]
     // console.log('getBlock:', localIndex, globalIndex)
-    return globalIndex
+    return this.palette2[l].get(this.blocks[l][((x << 8) | (z << 4) | y)])
   }
 
   setBlockID(l, x, y, z, runtimeId: int) {
     this.updated = true
-
-    // TODO: removing from palete
-    if (this.lastSetBlockId?.id == runtimeId) {
-      // console.log('Setting', ((x << 8) | (z << 4) | y), 'to', this.lastSetBlockId)
-      this.blocks[l][((x << 8) | (z << 4) | y)] = this.lastSetBlockId.localIndex
-      return
+    if (!this.palette2[l]?.get(runtimeId)) {
+      // console.trace('runtimeId', runtimeId, 'not in', this.palette2[l], l)
+      this.addToPalette(l, runtimeId)
     }
-    let i = this.getIndexInPalette(l, runtimeId)
-    if (i == -1) {
-      i = this.addToPalette(l, runtimeId)
-    }
-    // console.log('adding block', i, this.palette[0])
-    this.blocks[l][((x << 8) | (z << 4) | y)] = i
-    this.lastSetBlockId = { id: runtimeId, localIndex: i }
+    // console.log('adding block', runtimeId, this.palette2[0], l, this.blocks)
+    this.blocks[l][((x << 8) | (z << 4) | y)] = runtimeId
     // console.log('added: ', this.blocks[l])
   }
 
@@ -310,11 +315,17 @@ export class SubChunk {
   toCompressedSubChunk(l, bitsPerBlock) {
     let bss = new PalettedBlockStateStorage(bitsPerBlock);
 
+    let index = 0
+    const map = {}
+    for (const [g] of this.palette2[l]) {
+      map[g] = index++
+    }
+
     for (let x = 0; x <= 0xf; x++) {
       for (let y = 0; y <= 0xf; y++) {
         for (let z = 0; z <= 0xf; z++) {
-          let localIndex = this.blocks[l][((x << 8) | (z << 4) | y)]
-          bss.setBlockStateAt(x, y, z, localIndex)
+          let globalIndex = this.blocks[l][((x << 8) | (z << 4) | y)]
+          bss.setBlockStateAt(x, y, z, map[globalIndex])
         }
       }
     }
@@ -324,12 +335,11 @@ export class SubChunk {
 
   exportRuntimePalette(l: int): Buffer {
     const stream = new Stream()
-    for (let i = 0; i < this.palette[l].length; i++) {
-      let e = this.palette[l][i]
-      stream.writeVarInt(e.globalIndex)
-      // const state = BlockFactory.getBlockState(e.globalIndex)
-      // console.log('state', state)
-      // console.log('wrote', e)
+    const palette = this.palette2[l]
+    let i = 0
+    for (const [globalIndex] of palette) {
+      stream.writeVarInt(globalIndex)
+      i++
     }
     return stream.getBuffer()
   }
@@ -337,9 +347,8 @@ export class SubChunk {
   // Returns a JS array of objects that can be serialized to NBT
   exportLocalPalette(l: int): nbt.NBT[] {
     let nbt = []
-    for (let i = 0; i < this.palette[l].length; i++) {
-      let e = this.palette[l][i]
-      // console.log('EXPORT', e)
+    let i = 0
+    for (const [k, e] of this.palette2[l]) {
       nbt.push({
         "type": "compound",
         "name": "",
@@ -355,6 +364,7 @@ export class SubChunk {
           }
         }
       })
+      i++
     }
     return nbt
   }

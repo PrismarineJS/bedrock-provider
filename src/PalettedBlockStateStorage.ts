@@ -24,7 +24,6 @@ export class PalettedBlockStateStorage {
 
   read(stream: Stream) {
     let buf = stream.read(this.wordsCount * wordByteSize)
-    console.log('buf',buf)
     this.array = new Uint32Array(new Uint8Array(buf).buffer)
   }
 

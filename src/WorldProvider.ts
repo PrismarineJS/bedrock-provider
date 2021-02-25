@@ -3,7 +3,7 @@ import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './format'
 import { ChunkColumn } from './ChunkColumn'
 import { StorageType, SubChunk } from './SubChunk'
 import NBT from 'prismarine-nbt'
-import BinaryStream from '@jsprismarine/jsbinaryutils'
+import { Stream } from './Stream'
 
 export class WorldProvider {
   db: LevelDB
@@ -43,8 +43,8 @@ export class WorldProvider {
       for (let y = cc.minY; y < cc.maxY; y++) {
         let chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
-        const subchunk = new SubChunk(version, chunk, y)
-        subchunk.decode(StorageType.LocalPersistence) // Note: we don't wait for it to finish decoding here
+        const subchunk = new SubChunk(version, y)
+        subchunk.decode(StorageType.LocalPersistence, new Stream(chunk)) // Note: we don't wait for it to finish decoding here
         cc.addSection(subchunk)
 
         // console.log('RAW CHUNK', chunk.toString('hex'))
@@ -70,7 +70,7 @@ export class WorldProvider {
 
           buffer.startOffset += metadata.size
           ret.push(parsed)
-          console.log(buffer.startOffset, metadata.size, buffer.length)
+          // console.log(buffer.startOffset, metadata.size, buffer.length)
         }
       }
     }
@@ -93,7 +93,7 @@ export class WorldProvider {
 
           buffer.startOffset += metadata.size
           ret.push(parsed)
-          console.log(buffer.startOffset, metadata.size, buffer.length)
+          // console.log(buffer.startOffset, metadata.size, buffer.length)
         }
       }
     }
@@ -159,10 +159,10 @@ export class WorldProvider {
    */
   async load(x: number, z: number, full: boolean) {
     let cver = await this.getChunkVersion(x, z)
-    console.log('Chunk ver', cver)
+    // console.log('Chunk ver', cver)
     if (cver) {
       let column = await this.readSubChunks(x, z, cver)
-      console.log('Read chunk', column)
+      // console.log('Read chunk', column)
 
       if (full) {
         const tiles = await this.readBlockEntities(x, z, cver)
@@ -227,7 +227,7 @@ async function test() {
     let key = _key[0]
     // console.log(key.type)
     if (key.type == 'version') {
-      console.log('version', key.x, key.z, key.key)
+      // console.log('version', key.x, key.z, key.key)
 
       const cc = await wp.load(key.x, key.z, true)
       // console.log('Entities', JSON.stringify(cc.entities, null, 2))
@@ -294,4 +294,4 @@ async function test() {
   // console.log('Keys', keys)
 }
 
-test()
+// test()
