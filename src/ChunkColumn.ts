@@ -114,7 +114,7 @@ export class ChunkColumn {
       const tile = this.tiles[key]
       tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
     }
-    const biomeBuf = this.biomes.length ? Buffer.from(this.biomes) : Buffer.allocUnsafe(256)
+    const biomeBuf = this.biomes?.length ? Buffer.from(this.biomes) : Buffer.alloc(256)
     const sectionBufs = []
     for (const section of this.sections) {
       sectionBufs.push(await section.encode(this.version, StorageType.Runtime))
