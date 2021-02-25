@@ -288,11 +288,6 @@ export async function recurseMinecraftKeys(db) {
     // console.log('[mc] readKey: ', entry, entry[0].length)
     const read = readKey(entry[0])
     out.push(read)
-    // if (read.length) {
-    //   console.log(JSON.stringify(read))
-    // } else {
-    //   // console.log('Extranenous: ', entry[1])
-    // }
   }
   await iter.end()
   return out

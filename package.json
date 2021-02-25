@@ -2,7 +2,7 @@
   "name": "bedrock-provider",
   "version": "0.1.0",
   "description": "Minecraft Bedrock edition chunk provider",
-  "main": "index.js",
+  "main": "./js/index.js",
   "scripts": {
     "build": "tsc",
     "test": "cd tests && ts-node world_encode.ts"
