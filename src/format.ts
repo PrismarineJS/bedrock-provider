@@ -111,7 +111,7 @@ export class KeyBuilder {
       stream.writeLInt(dimId)
     }
     stream.writeByte(Tag.VersionNew)
-    console.log('Built key', stream.getBuffer())
+    // console.log('Built key', stream.getBuffer())
     return stream.getBuffer()
   }
 
@@ -243,10 +243,14 @@ export async function recurseMinecraftKeys(db) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
       } else if (otherDim && tagWithDim == Tag.PendingTicks) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
+      } else if (overworld && tagOver == Tag.Checksums) {
+        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.Checksums) {
+        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
       }
 
       if (!read.length) {
-        console.log(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim)
+        console.log(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim, buffer.toString())
 
         read.push({ x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer })
       }
@@ -279,7 +283,7 @@ export async function recurseMinecraftKeys(db) {
 
   const iter = db.getIterator({ values: true })
   let entry = null
-  console.log('Iterator entries:')
+  // console.log('Iterator entries:')
   while (entry = await iter.next()) { // eslint-disable-line
     // console.log('[mc] readKey: ', entry, entry[0].length)
     const read = readKey(entry[0])

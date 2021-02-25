@@ -9,8 +9,8 @@ export class AnvilProvider {
   db: LevelDB
   version: string
 
-  constructor(db: LevelDB, version)
-  constructor(path: string, version)
+  constructor(db: LevelDB, version: string)
+  constructor(path: string, version: string)
   constructor(dbOrPath, version) {
     this.version = version
     if (typeof dbOrPath == 'object') {

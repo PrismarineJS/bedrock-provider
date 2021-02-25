@@ -43,8 +43,8 @@ export class WorldProvider {
       for (let y = cc.minY; y < cc.maxY; y++) {
         let chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
-        const subchunk = new SubChunk(version, y)
-        subchunk.decode(StorageType.LocalPersistence, new Stream(chunk)) // Note: we don't wait for it to finish decoding here
+        const subchunk = new SubChunk(version, y, false)
+        await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk)) // Note: we don't wait for it to finish decoding here
         cc.addSection(subchunk)
 
         // console.log('RAW CHUNK', chunk.toString('hex'))

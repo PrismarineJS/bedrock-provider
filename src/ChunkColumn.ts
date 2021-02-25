@@ -28,7 +28,7 @@ export class ChunkColumn {
   maxY = MAX_Y
 
   biomesUpdated = true
-  hash: Buffer | null
+  biomesHash: Buffer | null
 
   constructor(version: Version, x, z) {
     this.version = version
@@ -49,10 +49,10 @@ export class ChunkColumn {
 
   setBlock(sx: int, sy: int, sz: int, block: Block) {
     let y = sy >> 4
-    if (y < this.minY || y >= this.maxY) return
+    if (y < this.minY || y > this.maxY) return
     let sec = this.sections[this.minY + y]
     while (!sec) {
-      this.addSection(new SubChunk(this.version))
+      this.addSection(new SubChunk(this.version, this.sections.length))
       sec = this.sections[this.minY + y]
     }
     return sec.setBlock(sx, sy & 0xf, sz, block)
@@ -100,12 +100,8 @@ export class ChunkColumn {
 
   async updateHash(fromBuf: Buffer | Uint8Array): Promise<Buffer> {
     this.biomesUpdated = false
-    this.hash = await getChecksum(fromBuf)
-    return this.hash
-  }
-
-  async getHash() {
-    return this.hash
+    this.biomesHash = await getChecksum(fromBuf)
+    return this.biomesHash
   }
 
   /**
@@ -149,13 +145,13 @@ export class ChunkColumn {
       }
       blobHashes.push({ hash: section.hash, type: BlobType.ChunkSection })
     }
-    if (this.biomesUpdated || !blobStore.read(this.hash)) {
+    if (this.biomesUpdated || !this.biomesHash || !blobStore.read(this.biomesHash)) {
       if (!this.biomes) this.biomes = new Uint8Array(256)
-      this.updateHash(this.biomes)
+      await this.updateHash(this.biomes)
       this.biomesUpdated = false
-      blobStore.write(this.hash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes, buffer: this.biomes }))
+      blobStore.write(this.biomesHash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes, buffer: this.biomes }))
     }
-    blobHashes.push({ hash: this.hash, type: BlobType.Biomes })
+    blobHashes.push({ hash: this.biomesHash, type: BlobType.Biomes })
     return blobHashes
   }
 
@@ -164,6 +160,7 @@ export class ChunkColumn {
     const tileBufs = []
     for (const key in this.tiles) {
       const tile = this.tiles[key]
+      // console.log(JSON.stringify(tile))
       tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
     }
 
@@ -182,8 +179,8 @@ export class ChunkColumn {
     // console.warn('Total Reading', sectionCount)
     for (let i = 0; i < sectionCount; i++) {
       // console.warn('Reading', i)
-      const section = new SubChunk(this.version)
-      section.decode(StorageType.Runtime, stream)
+      const section = new SubChunk(this.version, i, false)
+      await section.decode(StorageType.Runtime, stream)
       this.sections.push(section)
     }
     this.biomes = new Uint8Array(stream.read(256))
@@ -222,6 +219,7 @@ export class ChunkColumn {
 
     const misses = [] as CCHash[]
     for (const blob of blobs) {
+      // console.log('Checking blob', blob, blobStore.get(blob.hash), blobStore)
       if (!blobStore.has(blob.hash)) {
         misses.push(blob)
       }
@@ -240,7 +238,7 @@ export class ChunkColumn {
         this.biomes = entry.buffer
       } else if (entry.type == BlobType.ChunkSection) {
         const subchunk = new SubChunk(this.version, this.sectionsLen)
-        subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
+        await subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
         this.addSection(subchunk)
       } else {
         throw Error(`Unknown blob type: ` + entry.type)

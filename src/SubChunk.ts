@@ -37,12 +37,18 @@ export class SubChunk {
    * @param buffer 
    * @param y 
    */
-  constructor(columnVersion: number, y = 0) {
+  constructor(columnVersion: number, y = 0, initialize = true) {
     this.columnVersion = columnVersion
     this.y = y
     this.palette2 = []
     this.blocks = []
-    this.blocks.push(new Uint16Array(4096))
+    if (initialize) {
+      // Fill first layer with zero
+      this.blocks.push(new Uint16Array(4096))
+      // Set zero to be air, Add to the palette
+      const air = BlockFactory.getRuntimeID('minecraft:air', {}, 17825808)
+      this.addToPalette(0, air, 17825808)
+    }
   }
 
   async decode(format: StorageType, stream: Stream) {
@@ -155,7 +161,6 @@ export class SubChunk {
     LOG('Stream.peek 2', stream.peek())
     while (stream.peek() == 0x0A) {
       const { parsed, metadata } = await nbt.parse(buf, overNetwork ? 'littleVarint' : 'little')
-      // console.log('Reading NBT', parsed, metadata)
       stream.offset += metadata.size // BinaryStream
       buf.startOffset += metadata.size // Buffer
 
@@ -199,7 +204,6 @@ export class SubChunk {
     stream.writeByte(8) // write the chunk version
     stream.writeByte(this.blocks.length)
     for (let l = 0; l < this.blocks.length; l++) {
-      console.log('Pal', l, this.palette2, this.blocks)
       let palette = this.palette2[l]
       let palette_type = 0; // n >> 1 = bits per block, n & 1 = 0 for local palette
 
@@ -242,7 +246,7 @@ export class SubChunk {
     // @ts-ignore
     let brid = block['brid'] || BlockFactory.getBRIDFromJSID(block.stateId || block.defaultState)
     this.setBlockID(0, x, y, z, brid)
-    // console.log(`Setting ${x} ${y} ${z} layer 0 to ${brid}`, block, this.palette2[0])
+    // console.log(`Setting ${x} ${y} ${z} layer 0 to ${brid}`, block, /*this.palette2[0],*/ this.getBlockID(0, x, y, z))
   }
 
   getBlock(x: int, y: int, z: int): Block {
