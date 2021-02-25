@@ -4,6 +4,7 @@
   "description": "Minecraft Bedrock edition chunk provider",
   "main": "./js/index.js",
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc",
     "test": "cd tests && ts-node world_encode.ts"
   },
