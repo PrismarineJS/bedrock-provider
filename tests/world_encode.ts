@@ -3,6 +3,7 @@ import { BlobStore } from '../src/Blob';
 import { ChunkColumn } from '../src/ChunkColumn';
 import { Version } from '../src/format';
 import { WorldProvider } from '../src/WorldProvider'
+import { netBufferTest } from './chunkreadtest'
 const mcdata = require('minecraft-data')('1.16.1')
 const Block = require('prismarine-block')('1.16.1')
 
@@ -157,6 +158,7 @@ async function runTests() {
   await testNetworkNoCache()
   await testNetworkWithCache()
   await testNetworkWithBadCache()
+  await netBufferTest()
   console.log('✔ All OK')
 }
 
