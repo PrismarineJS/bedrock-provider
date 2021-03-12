@@ -11,7 +11,7 @@ Minecraft Bedrock level provider for saves and network serialization
 ## Install
 
 ```js
-npm i extremeheat/bedrock-provider
+npm i bedrock-provider
 ```
 
 ## Usage
