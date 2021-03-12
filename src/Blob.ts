@@ -90,18 +90,3 @@ export class BlobStore extends Map {
 
   }
 }
-
-// TODO: make new package:
-// A fast blob cache implemeation for Node.js 
-// This was designed for use in Minecraft, but you can use it for any Node.js application
-// Features:
-// - Serialize any Node.js object - classes, buffers, objects
-
-// const BlobStore require('bedrock-blob').BedrockBlobStore
-// new BlobStore()
-// This currently requires the v8 engine for serialization, it will not work in the browser.
-// Consider using it as a peerDependency if you need this as an optional dependency.
-// npm i bedrock-blob
-// new BedrockBlockCache(cacheDir)
-// 
-// getHash(buffer) -> returns an xxHash64

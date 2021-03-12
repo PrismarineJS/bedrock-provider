@@ -44,10 +44,9 @@ export class WorldProvider {
         let chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
         const subchunk = new SubChunk(version, y, false)
-        await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk)) // Note: we don't wait for it to finish decoding here
+        await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
         cc.addSection(subchunk)
-
-        // console.log('RAW CHUNK', chunk.toString('hex'))
+        // console.log('Raw chunk', chunk.toString('hex'))
         break
       }
       return cc
@@ -133,11 +132,11 @@ export class WorldProvider {
     if (formatVer >= Version.v17_0) {
       for (let y = column.minY; y < column.maxY; y++) {
         let section = column.getSection(y)
-        console.log('Save', y, section)
+        // console.log('Save', y, section)
         if (!section) {
           break // no more sections
         }
-        globalThis.ckeys.push('save:')
+        // globalThis.ckeys.push('save:')
         let key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
         let buf = await section.encode(formatVer, StorageType.LocalPersistence)
         promises.push(this.db.put(key, buf))

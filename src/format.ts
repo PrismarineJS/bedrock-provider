@@ -44,7 +44,7 @@ export class KeyBuilder {
     }
     stream.writeByte(Tag.SubChunkPrefix)
     stream.writeByte(y)
-    globalThis.ckeys.push([x, y, z, dimId, stream.getBuffer()])
+    // globalThis.ckeys.push([x, y, z, dimId, stream.getBuffer()])
     return stream.getBuffer()
   }
 

@@ -1,5 +1,4 @@
 // @ts-nocheck
-// const mcdata = require('minecraft-data')
 const PBlock = require('prismarine-block')
 
 var data = {}
@@ -49,46 +48,51 @@ let NEXT_RUNTIME_ID = 20000
 
 const Block1_16_1 = PBlock('1.16.1')
 
-const LATVER = '17825808'
+// Maps game version with NBT version
+const VERSION_MAP = {
+  '1.16.200': '17825808'
+}
+
+const LATVER = VERSION_MAP["1.16.200"]
 
 export class BlockFactory {
-  static initialize(version) {
+  static initialize(gameVersion) {
+    const nbtVersion = VERSION_MAP[gameVersion]
+    if (!nbtVersion) throw Error('Unknown game ver : ' + gameVersion)
     const Block = PBlock('1.16.1')
-    if (version == '17825808') {
-      data[version] = {
-        brid2bss: require('../data/blocks/BRID_17825808.json'),
-        bss2brid: require('../data/blocks/BSS_17825808.json'),
-        blockstates: require('../data/BlockStates_17825808.json'),
-        jss2brid: require('../data/blocks/J2BRID.json'),
-        brid2jsid: [],
-        jsid2brid: []
-      }
-      data[version].blockstatesLen = data[version].blockstates.length
 
-      let javaBlocks = require('../data/Block_Java_116.json')
+    const root = __dirname + `/../data/${gameVersion}/`
 
-      let maxStateId = javaBlocks[javaBlocks.length - 1].maxStateId
-      let a = []
-      let jsid2brid = []
-      // console.log(maxStateId)
-      // process.exit(0)
-      for (let i = 0; i < maxStateId; i++) {
-        let block = Block.fromStateId(i)
-        let props = block.getProperties()
-        let bss = this.buildBSS('minecraft:' + block.name, props)
-        // console.log('bss', bss, data[version].jss2brid[bss])
-        jsid2brid.push(data[version].jss2brid[bss])
-        a.push(bss)
-      }
-      data[version].jsid2brid = jsid2brid
-      for (let i = 0; i < jsid2brid.length; i++) {
-        let brid = jsid2brid[i]
-        data[version].brid2jsid[brid] = i
-        // if (!brid) console.log(brid, i)
-        // this.nextRuntimeID()
-      }
-    } else {
-      throw 'Unknown version: ' + version
+    data[nbtVersion] = {
+      brid2bss: require(root + 'blocks/BRID.json'),
+      bss2brid: require(root + 'blocks/BSS.json'),
+      blockstates: require(root + 'blocks/BlockStates.json'),
+      jss2brid: require(root + 'blocks/J2BRID.json'),
+      brid2jsid: require(root + 'blocks/J2BRID.json'),
+      jsid2brid: []
+    }
+    data[nbtVersion].blockstatesLen = data[nbtVersion].blockstates.length
+
+    let javaBlocks = require(root + '../Block_Java_116.json')
+
+    let maxStateId = javaBlocks[javaBlocks.length - 1].maxStateId
+    let a = []
+    let jsid2brid = []
+
+    for (let i = 0; i < maxStateId; i++) {
+      let block = Block.fromStateId(i)
+      let props = block.getProperties()
+      let bss = this.buildBSS('minecraft:' + block.name, props)
+      // console.log('bss', bss, data[version].jss2brid[bss])
+      jsid2brid.push(data[nbtVersion].jss2brid[bss])
+      a.push(bss)
+    }
+    data[nbtVersion].jsid2brid = jsid2brid
+    for (let i = 0; i < jsid2brid.length; i++) {
+      let brid = jsid2brid[i]
+      data[nbtVersion].brid2jsid[brid] = i
+      // if (!brid) console.log(brid, i)
+      // this.nextRuntimeID()
     }
   }
 
@@ -164,18 +168,12 @@ export class BlockFactory {
   }
 }
 
-// class Block {
-//   getProperties(): { string?: any } {
-//     return {}
-//   }
-// }
-
-BlockFactory.initialize(LATVER)
+BlockFactory.initialize('1.16.200')
 
 function test() {
   console.log(Block1_16_1)
-  BlockFactory.initialize(LATVER)
-  
+  BlockFactory.initialize('1.16.200')
+
   let ret = []
   // for (let i = 0; i < 10000; i++) {
   //   ret.push(JSON.stringify(BlockFactory.getBlockState(i)))

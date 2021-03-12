@@ -21,7 +21,6 @@ export class SubChunk {
   y: number
   blocks: Uint16Array[]
   buffer?: Buffer
-  // palette: { globalIndex: short, name: string, states: object, version: number }[][]
   palette2: Map<number, { globalIndex: short, name: string, states: object, version: number }>[]
 
   rebuildPalette: boolean
@@ -64,7 +63,6 @@ export class SubChunk {
 
     let paletteType: byte = stream.readByte()
     let usingNetworkRuntimeIds = paletteType & 1
-    // console.warn('! DCODED with palette type ', paletteType, storageCount)
 
     if (!usingNetworkRuntimeIds && (format === StorageType.Runtime)) {
       console.log(usingNetworkRuntimeIds, format)
@@ -73,8 +71,6 @@ export class SubChunk {
 
     for (let i = 0; i < storageCount; i++) {
       let bitsPerBlock = paletteType >> 1;
-      // console.warn('! DECODE BITSPER ', bitsPerBlock)
-
       await this.loadPalettedBlocks(i, stream, bitsPerBlock, format)
     }
   }
@@ -87,25 +83,14 @@ export class SubChunk {
     let paletteSize = format == StorageType.LocalPersistence ? stream.readLInt() : stream.readVarInt()
     if (paletteSize > stream.getBuffer().length || paletteSize < 1)
       throw new Error(`Invalid palette size: ${paletteSize}`)
-    // console.warn('Palette size is', paletteSize, stream.getOffset(), stream.getBuffer().length)
-    // unsigned int size
-    // stream.read((char*)&size, 4);
-
-    // LOG("Pos is: %d\n", stream.tellg());
-
     if (format == StorageType.Runtime) {
       await this.loadRuntimePalette(storage, stream, paletteSize)
     } else {
       // (for persistence) N NBT tags: The palette entries, as PersistentIDs. You should read the "name" and "val" fields to figure out what blocks it represents.
       await this.loadLocalPalette(storage, stream, paletteSize, format == StorageType.NetworkPersistence)
     }
-    // console.warn('Palete', JSON.stringify(this.palette))
-    // console.log('Palete', format, paletteSize, storage, bitsPerBlock, this.palette)
-    // console.log(stream.getBuffer().toString('hex'))
 
     const palette = this.palette2[storage]
-
-    // console.log('bsc', bsc.getBuffer().toString('hex'))
 
     // Map a serialized palette index to our internal palette index
     const map = new Array(paletteSize)
@@ -126,7 +111,6 @@ export class SubChunk {
             throw Error()
           }
           // let paletted_block = this.palette[bsv]
-          // this.blocks[((x << 8) | (z << 4) | y)] = paletted_block.index
           this.blocks[storage][((x << 8) | (z << 4) | y)] = map[localIndex]
         }
       }
@@ -138,10 +122,8 @@ export class SubChunk {
 
     for (let i = 0; i < length; i++) {
       let index = stream.readVarInt()
-      // console.log('Read',index)
       let block = BlockFactory.getBlockState(index)
 
-      // console.log(index, block)
       let name: string = block.name.value
       let states: object = block.states
       let version = block.version.value
@@ -168,8 +150,6 @@ export class SubChunk {
       let name = parsed.value.name.value as string
       let states = parsed.value.states
       let version = parsed.value.version.value as number
-      // if (typeof version == 'object') version = version[1] // temp
-      // console.log(result)
       let index = BlockFactory.getRuntimeID(name, states, version)
       // PaletteMappedBlockID mapped_block{ name, meta, index }
       let mappedBlock = { globalIndex: index, name, states, version }
@@ -216,7 +196,6 @@ export class SubChunk {
       }
 
       palette_type = (bitsPerBlock << 1) | runtimeSerialization
-      // console.warn('! ENCODED with palette type ', palette_type, bitsPerBlock)
       stream.writeByte(palette_type)
 
       let bss = this.toCompressedSubChunk(l, bitsPerBlock)
@@ -278,18 +257,6 @@ export class SubChunk {
     return pblock
   }
 
-  // getIndexInPalette(l, runtimeId) {
-  //   const palette = this.palette2[l]
-  //   let i = 0
-  //   for (const globalIndex in palette) {
-  //     if (globalIndex == runtimeId) {
-  //       return i
-  //     }
-  //     i++
-  //   }
-  //   return -1
-  // }
-
   addToPalette(l, runtimeId, version = 0) {
     while (this.palette2.length <= l) this.palette2.push(new Map())
     let state = BlockFactory.getBlockState(runtimeId)
@@ -316,9 +283,10 @@ export class SubChunk {
   }
 
   // EXPORT FUNCTIONS
-  toCompressedSubChunk(l, bitsPerBlock) {
+  toCompressedSubChunk(l: int, bitsPerBlock: int) {
     let bss = new PalettedBlockStateStorage(bitsPerBlock);
 
+    // Build the palette map
     let index = 0
     const map = {}
     for (const [g] of this.palette2[l]) {
