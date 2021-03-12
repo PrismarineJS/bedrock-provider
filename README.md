@@ -1,5 +1,5 @@
 # bedrock-provider
-<!--[![NPM version](https://img.shields.io/npm/v/bedrock-provider.svg)](http://npmjs.com/package/bedrock-provider)-->
+[![NPM version](https://img.shields.io/npm/v/bedrock-provider.svg)](http://npmjs.com/package/bedrock-provider)
 [![Build Status](https://github.com/extremeheat/bedrock-provider/workflows/CI/badge.svg)](https://github.com/extremeheat/bedrock-provider/actions?query=workflow%3A%22CI%22)
 [![Discord](https://img.shields.io/badge/chat-on%20discord-brightgreen.svg)](https://discord.gg/GsEFRM8)
 [![Gitter](https://img.shields.io/badge/chat-on%20gitter-brightgreen.svg)](https://gitter.im/PrismarineJS/general)
