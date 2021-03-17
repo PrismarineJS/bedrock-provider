@@ -60,16 +60,15 @@ export class SubChunk {
     if (version >= 8) {
       storageCount = stream.readByte()
     }
-
-    let paletteType: byte = stream.readByte()
-    let usingNetworkRuntimeIds = paletteType & 1
-
-    if (!usingNetworkRuntimeIds && (format === StorageType.Runtime)) {
-      console.log(usingNetworkRuntimeIds, format)
-      throw new Error('Expected network encoding while decoding SubChunk at y=' + this.y)
-    }
-
     for (let i = 0; i < storageCount; i++) {
+      let paletteType: byte = stream.readByte()
+      let usingNetworkRuntimeIds = paletteType & 1
+
+      if (!usingNetworkRuntimeIds && (format === StorageType.Runtime)) {
+        console.log(usingNetworkRuntimeIds, format)
+        throw new Error('Expected network encoding while decoding SubChunk at y=' + this.y)
+      }
+
       let bitsPerBlock = paletteType >> 1;
       await this.loadPalettedBlocks(i, stream, bitsPerBlock, format)
     }

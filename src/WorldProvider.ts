@@ -47,7 +47,6 @@ export class WorldProvider {
         await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
         cc.addSection(subchunk)
         // console.log('Raw chunk', chunk.toString('hex'))
-        break
       }
       return cc
     }
