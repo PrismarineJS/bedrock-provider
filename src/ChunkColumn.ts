@@ -1,7 +1,7 @@
 
 /// <reference path="./global.d.ts" />
 import { Version, getChecksum } from "./format";
-import { BlockFactory } from './BlockFactory'
+import { BlockFactory, blockFactory } from './BlockFactory'
 import { Block } from "prismarine-block";
 import { StorageType, SubChunk } from './SubChunk'
 import nbt, { NBT } from "prismarine-nbt";
@@ -14,11 +14,11 @@ const MAX_Y = 15
 export class ChunkColumn {
   x: number; z: number
   version: number
-  sections: SubChunk[]
-  sectionsLen: number
+  sections: SubChunk[] = []
+  sectionsLen = 0
 
-  entities: NBT[]
-  tiles: { string?: NBT }
+  entities: NBT[] = []
+  tiles: { string?: NBT } = {}
 
   biomes?: Uint8Array
   heights?: Uint16Array
@@ -30,21 +30,19 @@ export class ChunkColumn {
   biomesUpdated = true
   biomesHash: Buffer | null
 
-  constructor(version: Version, x, z) {
+  factory: BlockFactory = blockFactory
+
+  constructor(version: Version, x: number, z: number) {
     this.version = version
     this.x = x
     this.z = z
-    this.sections = []
-    this.entities = []
-    this.tiles = {}
-    this.sectionsLen = 0
   }
 
   getBlock(sx: int, sy: int, sz: int): Block {
     let y = sy >> 4
     let sec = this.sections[this.minY + y]
     if (sec) return sec.getBlock(sx, sy & 0xf, sz)
-    return BlockFactory.getPBlockFromStateID(0)
+    return this.factory.getPBlockFromStateID(0)
   }
 
   setBlock(sx: int, sy: int, sz: int, block: Block) {
@@ -52,7 +50,7 @@ export class ChunkColumn {
     if (y < this.minY || y > this.maxY) return
     let sec = this.sections[this.minY + y]
     while (!sec) {
-      this.addSection(new SubChunk(this.version, this.sections.length))
+      this.addSection(new SubChunk(this.factory, this.version, this.sections.length))
       sec = this.sections[this.minY + y]
     }
     return sec.setBlock(sx, sy & 0xf, sz, block)
@@ -90,11 +88,11 @@ export class ChunkColumn {
     return this.tiles
   }
 
-  getBiome(x, y, z) {
+  getBiome(x: int, y: int, z: int) {
     //todo
   }
 
-  setBiome(x, y, z, biome) {
+  setBiome(x: int, y: int, z: int, biome) {
     this.biomesUpdated = true
   }
 
@@ -179,7 +177,7 @@ export class ChunkColumn {
     // console.warn('Total Reading', sectionCount)
     for (let i = 0; i < sectionCount; i++) {
       // console.warn('Reading', i)
-      const section = new SubChunk(this.version, i, false)
+      const section = new SubChunk(this.factory, this.version, i, false)
       await section.decode(StorageType.Runtime, stream)
       this.sections.push(section)
     }
@@ -237,7 +235,7 @@ export class ChunkColumn {
       if (entry.type == BlobType.Biomes) {
         this.biomes = entry.buffer
       } else if (entry.type == BlobType.ChunkSection) {
-        const subchunk = new SubChunk(this.version, this.sectionsLen)
+        const subchunk = new SubChunk(this.factory, this.version, this.sectionsLen)
         await subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
         this.addSection(subchunk)
       } else {

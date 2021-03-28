@@ -1,10 +1,3 @@
-// @ts-nocheck
-const PBlock = require('prismarine-block')
-
-var data = {}
-
-let NEXT_RUNTIME_ID = 20000
-
 /**
  * 
  * In this factory, we convert Bedrock Block palette entries, which
@@ -46,24 +39,101 @@ let NEXT_RUNTIME_ID = 20000
  *  
  */
 
-const Block1_16_1 = PBlock('1.16.1')
+import { Block } from "prismarine-block"
+import { join } from 'path'
 
-// Maps game version with NBT version
-const VERSION_MAP = {
-  '1.16.200': '17825808'
+const PBlock = require('prismarine-block')
+const versions = require('../data/versions.json')
+export const latestVersion = versions[versions.length - 1][0]
+
+type int = number //todo: AssemblyScript
+
+// See if we have mappings for this version - if not, return the a version we support closest to the dataVersion
+export function hasVersion(dataVersion) {
+  for (const [gver, dver] of versions) {
+    if (dver === dataVersion) return [gver, dver]
+  }
+
+  for (const [_gameVersion, _dataVersion] of versions) {
+    if (_dataVersion >= dataVersion) {
+      return [_gameVersion, _dataVersion]
+    }
+  }
+  console.log(versions)
+  throw Error('Unknown version : ' + dataVersion)
 }
 
-const LATVER = VERSION_MAP["1.16.200"]
+
+// Converts numeric version to string version and vice-versa... easier for us to work with
+export function getVersion(version: int | string): { str: string, int: int } {
+  if (typeof version === 'number') {
+    const major = (version >> 24) & 0xFF
+    const minor = (version >> 16) & 0xFF
+    const patch = (version >> 8) & 0xFF
+    const build = (version) & 0xFF
+    return { str: `${major}.${minor}.${patch}`, int: version }
+  } else {
+    const [major, minor, patch, build] = version.split('.')
+    // @ts-ignore : these are strings but get turned to numbers when shifting :)
+    const v = (major << 24) | (minor << 16) | (patch << 8) | (build || 0)
+    return { str: version, int: v }
+  }
+}
 
 export class BlockFactory {
-  static initialize(gameVersion) {
-    const nbtVersion = VERSION_MAP[gameVersion]
-    if (!nbtVersion) throw Error('Unknown game ver : ' + gameVersion)
-    const Block = PBlock('1.16.1')
+  // When a block is not found in the global palette, it is inserted into the global palette starting at this index
+  _nextRuntimeID = 20000
 
-    const root = __dirname + `/../data/${gameVersion}/`
+  data: {
+    [key: string]: {
+      // Bedrock Runtime ID to Bedrock Block State string
+      brid2bss?: { j: string, b: string }[],
+      // Bedrock Block state string to Bedrock Runtime ID
+      bss2brid?: { [key: string]: int },
+      // Same as above but for Java block state strings
+      jss2brid?: { [key: string]: int },
 
-    data[nbtVersion] = {
+      // Bedrock Runtime ID to Java state ID - this is generated at runtime
+      brid2jsid?: { [key: number]: int },
+      jsid2brid?: { [key: number]: int }, // reversed map of above
+
+      // This holds the block runtime ID global palette from the vanilla game 
+      blockstates?: any[]
+    }
+  } = {}
+  Block: Block
+
+  constructor(pblockVersion?: string) {
+    this.setPBlockVersion(pblockVersion)
+    this.initialize(latestVersion)
+  }
+
+  setPBlockVersion(version?: string) {
+    // default to latest p-block
+    const pver = PBlock.testedVersions[PBlock.testedVersions.length - 1]
+    this.Block = PBlock(version || pver)
+  }
+
+  initialize(bedrockVersion: int | string) {
+    let { str: gameVersion, int: dataVersion } = getVersion(bedrockVersion)
+    // console.log('Version', dataVersion, gameVersion)
+    if (!gameVersion || !dataVersion) throw Error('Unknown game ver : ' + bedrockVersion)
+
+    const have = hasVersion(dataVersion)
+    let alias
+    if (!this.data[gameVersion]) {
+      alias = gameVersion
+      gameVersion = have[0]
+      // console.log('ALIAS',alias, '->', gameVersion)
+    }
+    // console.log(gameVersion, have, this.data[gameVersion])
+
+    if (this.data[gameVersion]) {
+      if (alias) this.data[alias] = this.data[gameVersion]
+      return // Already initialized
+    }
+    const root = join(__dirname, `../data/${gameVersion}/`)
+    this.data[gameVersion] = {
       brid2bss: require(root + 'blocks/BRID.json'),
       bss2brid: require(root + 'blocks/BSS.json'),
       blockstates: require(root + 'blocks/BlockStates.json'),
@@ -71,34 +141,40 @@ export class BlockFactory {
       brid2jsid: require(root + 'blocks/J2BRID.json'),
       jsid2brid: []
     }
-    data[nbtVersion].blockstatesLen = data[nbtVersion].blockstates.length
+    if (alias) this.data[alias] = this.data[gameVersion]
 
-    let javaBlocks = require(root + '../Block_Java_116.json')
+    // CACHE SOME MAPS
+    // optimization for quick conversion
 
-    let maxStateId = javaBlocks[javaBlocks.length - 1].maxStateId
-    let a = []
-    let jsid2brid = []
+    const javaBlocks = require(root + '../Block_Java_116.json')
+    const maxStateId = javaBlocks[javaBlocks.length - 1].maxStateId
+    const a = []
+    const jsid2brid = []
 
     for (let i = 0; i < maxStateId; i++) {
-      let block = Block.fromStateId(i)
+      let block = this.Block.fromStateId(i, 0)
       let props = block.getProperties()
-      let bss = this.buildBSS('minecraft:' + block.name, props)
+      let bss = BlockFactory.buildBSS('minecraft:' + block.name, props)
       // console.log('bss', bss, data[version].jss2brid[bss])
-      jsid2brid.push(data[nbtVersion].jss2brid[bss])
+      jsid2brid.push(this.data[gameVersion].jss2brid[bss])
       a.push(bss)
     }
-    data[nbtVersion].jsid2brid = jsid2brid
+    this.data[gameVersion].jsid2brid = jsid2brid
     for (let i = 0; i < jsid2brid.length; i++) {
       let brid = jsid2brid[i]
-      data[nbtVersion].brid2jsid[brid] = i
+      this.data[gameVersion].brid2jsid[brid] = i
       // if (!brid) console.log(brid, i)
       // this.nextRuntimeID()
     }
   }
 
+  get latestVersion() {
+    return latestVersion
+  }
+
   static buildBSS(name, states) {
     if (states.type == 'compound') {
-      // un-NBT ify 
+      // remove nbt encapsulation
       states = states.value
     }
     let str = ''
@@ -112,16 +188,24 @@ export class BlockFactory {
     return bss
   }
 
-  static nextRuntimeID(name, states, bss, version) {
-    data[version].bss2brid[bss] = NEXT_RUNTIME_ID
-    data[version].brid2bss[NEXT_RUNTIME_ID] = { b: bss }
-    data[version].blockstates[NEXT_RUNTIME_ID] = states
-    return NEXT_RUNTIME_ID++
+  get(version: string | int) {
+    if (!version) { version = this.latestVersion }
+    // When parsing chunk data, Minecraft stores the game version as a integer. We need to convert that to a string for internal use.
+    // Create a refrence if not already exists between numeric+string version data.
+    // console.log('GET',version,this.latestVersion)
+    this.data[version] ??= this.data[getVersion(version).str]
+    return this.data[version]
   }
 
+  nextRuntimeID(name: string, states, bss: string, version?) {
+    this.get(version).bss2brid[bss] = this._nextRuntimeID
+    this.get(version).brid2bss[this._nextRuntimeID] = { b: bss, j: undefined }
+    this.get(version).blockstates[this._nextRuntimeID] = states
+    return this._nextRuntimeID++
+  }
 
-  static getSimilarRuntimeID(name, version) {
-    let bsses = data[version].bss2brid
+  getSimilarRuntimeID(name: string, version?) {
+    let bsses = this.get(version).bss2brid
     for (const bsso in bsses) {
       if (bsso.startsWith(`${name}[`)) {
         return bsses[bsso]
@@ -130,15 +214,13 @@ export class BlockFactory {
     return -1
   }
 
-  static getRuntimeID(name, states, version): number {
-    // console.trace('getRuntimeID', name, states, version)
-    let bss = this.buildBSS(name, states)
-    version = version || LATVER
-    if (!data[version]) {
+  getRuntimeID(name: string, states, version?): int {
+    let bss = BlockFactory.buildBSS(name, states)
+    if (!this.get(version)) {
+      // console.log('init',name,states,version)
       this.initialize(version)
     }
-    console.assert(data[version])
-    let a1 = data[version].bss2brid[bss]
+    let a1 = this.get(version).bss2brid[bss]
     if (!a1) {
       console.warn('Did not find ', name, states, version, bss)
       return this.nextRuntimeID(name, states, bss, version)
@@ -146,57 +228,58 @@ export class BlockFactory {
     return a1
   }
 
-  static getBlockState(runtimeID) {
+  getBlockState(runtimeID: int, version?) {
     // console.log('R', runtimeID, data[LATVER].blockstates[runtimeID])
-    return data[LATVER].blockstates[runtimeID]?.value
+    // console.log(this.data, version)
+    return this.get(version).blockstates[runtimeID]?.value
   }
 
-  static getBlockStateCount() {
-    return data[LATVER].blockstatesLen
+  getBlockStateCount(version?) {
+    return this.get(version).blockstates.length
   }
 
-  static getBRIDFromJSID(jsid) {
-    return data[LATVER].jsid2brid[jsid] || 0
+  getBRIDFromJSID(jsid: int, version?) {
+    return this.get(version).jsid2brid[jsid] || 0
   }
 
-  static getJSIDFromBRID(brid) {
-    return data[LATVER].brid2jsid[brid] || 0
+  getJSIDFromBRID(brid: int, version?) {
+    return this.get(version).brid2jsid[brid] || 0
   }
 
-  static getPBlockFromStateID(jsid) {
-    return Block1_16_1.fromStateId(jsid)
+  getPBlockFromStateID(jsid: int, version?) {
+    return this.Block.fromStateId(jsid, 0) // TODO: biomes
   }
 }
 
-BlockFactory.initialize('1.16.200')
+// Expor a default instance
+export const blockFactory = new BlockFactory()
 
 function test() {
-  console.log(Block1_16_1)
-  BlockFactory.initialize('1.16.200')
+  const blockFactory = new BlockFactory('1.16.1')
 
   let ret = []
-  // for (let i = 0; i < 10000; i++) {
-  //   ret.push(JSON.stringify(BlockFactory.getBlockState(i)))
-  // }
-  // console.log(ret)
-
-  // ret = []
-  // for (let i = 0; i < 10000; i++) {
-  //   ret.push(BlockFactory.getBRIDFromJSID(i))
-  // }
-  // console.log(ret)
-
-  // ret = []
-  // for (let i = 0; i < BlockFactory.getBlockStateCount(); i++) {
-  //   let jsid = BlockFactory.getJSIDFromBRID(i)
-  //   if (jsid == 0) console.log(JSON.stringify(BlockFactory.getBlockState(i)))
-  //   ret.push(jsid)
-  // }
-  // console.log(ret)
+  for (let i = 0; i < 10000; i++) {
+    ret.push(JSON.stringify(blockFactory.getBlockState(i)))
+  }
+  console.log(ret)
 
   ret = []
   for (let i = 0; i < 10000; i++) {
-    ret.push(BlockFactory.getPBlockFromStateID(i))
+    ret.push(blockFactory.getBRIDFromJSID(i))
+  }
+  console.log(ret)
+
+  ret = []
+  for (let i = 0; i < blockFactory.getBlockStateCount(); i++) {
+    let jsid = blockFactory.getJSIDFromBRID(i)
+    if (jsid == 0) console.log(JSON.stringify(blockFactory.getBlockState(i)))
+    ret.push(jsid)
+  }
+  console.log(ret)
+
+  ret = []
+  for (let i = 0; i < 10000; i++) {
+    ret.push(blockFactory.getPBlockFromStateID(i))
   }
   console.log(ret)
 }
