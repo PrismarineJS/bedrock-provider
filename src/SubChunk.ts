@@ -6,7 +6,6 @@ import { Block } from "prismarine-block";
 import { getChecksum } from './format'
 
 const LOG = (...args) => { }
-// console.debug('[cc]', ...args)
 
 export type BedrockBlock = Block & {
   // The Bedrock runtime ID for this block, version dependent
@@ -117,9 +116,8 @@ export class SubChunk {
           // console.log('*GET',this.y, x,y,z,localIndex)
           console.assert(localIndex < count)
           if (localIndex >= count) {
-            console.warn("ERROR: PalettedSubChunk: BLOCK AT %d, %d, %d is out of palette bounds! (%d/%d)\n", x, y, z, localIndex, count)
             this.blocks[storage][((x << 8) | (z << 4) | y)] = 0
-            throw Error()
+            throw Error('bad palette')
           }
           // let paletted_block = this.palette[bsv]
           this.blocks[storage][((x << 8) | (z << 4) | y)] = map[localIndex]
@@ -138,7 +136,6 @@ export class SubChunk {
       let name: string = block.name.value
       let states: object = block.states
       let version = block.version.value
-      if (typeof version == 'object') version = version[1] // temp
 
       let mappedBlock = { globalIndex: index, name, states, version }
       this.palette2[storage].set(index, mappedBlock)
@@ -233,7 +230,7 @@ export class SubChunk {
   }
 
   setBlock(x: int, y: int, z: int, block: Block) {
-    // @ts-ignore
+    // @ts-ignore - try to set the block based on the bedrock Runtime ID if it exists, else get BRID from Java state ID
     let brid = block['brid'] || this.factory.getBRIDFromJSID(block.stateId || block.defaultState)
     this.setBlockID(0, x, y, z, brid)
     // console.log(`Setting ${x} ${y} ${z} layer 0 to ${brid}`, block, /*this.palette2[0],*/ this.getBlockID(0, x, y, z))

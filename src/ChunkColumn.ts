@@ -32,8 +32,8 @@ export class ChunkColumn {
 
   factory: BlockFactory = blockFactory
 
-  constructor(version: Version, x: number, z: number) {
-    this.version = version
+  constructor(colVersion: Version, x: number, z: number) {
+    this.version = colVersion
     this.x = x
     this.z = z
   }

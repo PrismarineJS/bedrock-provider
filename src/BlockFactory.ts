@@ -103,9 +103,12 @@ export class BlockFactory {
   } = {}
   Block: Block
 
-  constructor(pblockVersion?: string) {
+  defaultDataVersion: number
+
+  constructor(pblockVersion?: string, dataVersion?: number) {
     this.setPBlockVersion(pblockVersion)
     this.initialize(latestVersion)
+    this.defaultDataVersion = dataVersion || latestVersion
   }
 
   setPBlockVersion(version?: string) {
@@ -169,7 +172,7 @@ export class BlockFactory {
   }
 
   get latestVersion() {
-    return latestVersion
+    return this.defaultDataVersion
   }
 
   static buildBSS(name, states) {
