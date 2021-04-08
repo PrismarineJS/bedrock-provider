@@ -1,6 +1,6 @@
 {
   "name": "bedrock-provider",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "Minecraft Bedrock edition chunk provider",
   "main": "./js/index.js",
   "scripts": {

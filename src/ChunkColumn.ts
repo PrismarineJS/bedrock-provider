@@ -38,22 +38,22 @@ export class ChunkColumn {
     this.z = z
   }
 
-  getBlock(sx: int, sy: int, sz: int): Block {
-    let y = sy >> 4
-    let sec = this.sections[this.minY + y]
-    if (sec) return sec.getBlock(sx, sy & 0xf, sz)
+  getBlock({ x, y, z }): Block {
+    let Y = y >> 4
+    let sec = this.sections[this.minY + Y]
+    if (sec) return sec.getBlock(x, y & 0xf, z)
     return this.factory.getPBlockFromStateID(0)
   }
 
-  setBlock(sx: int, sy: int, sz: int, block: Block) {
-    let y = sy >> 4
-    if (y < this.minY || y > this.maxY) return
-    let sec = this.sections[this.minY + y]
+  setBlock({ x, y, z }, block: Block) {
+    let Y = y >> 4
+    if (Y < this.minY || Y > this.maxY) return
+    let sec = this.sections[this.minY + Y]
     while (!sec) {
       this.addSection(new SubChunk(this.factory, this.version, this.sections.length))
-      sec = this.sections[this.minY + y]
+      sec = this.sections[this.minY + Y]
     }
-    return sec.setBlock(sx, sy & 0xf, sz, block)
+    return sec.setBlock(x, y & 0xf, z, block)
   }
 
   addSection(section: SubChunk) {
@@ -88,11 +88,11 @@ export class ChunkColumn {
     return this.tiles
   }
 
-  getBiome(x: int, y: int, z: int) {
+  getBiome({ x, y, z }) {
     //todo
   }
 
-  setBiome(x: int, y: int, z: int, biome) {
+  setBiome({ x, y, z }, biome) {
     this.biomesUpdated = true
   }
 
