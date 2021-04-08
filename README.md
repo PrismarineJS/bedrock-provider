@@ -34,7 +34,7 @@ async function main() {
         // Set some random block IDs
         const id = Math.floor(Math.random() * 1000)
         let block = Block.fromStateId(id)
-        cc.setBlock(x, y, z, block)
+        cc.setBlock({ x, y, z }, block)
       }
     }
   }

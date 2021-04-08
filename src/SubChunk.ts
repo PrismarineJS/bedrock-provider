@@ -76,7 +76,7 @@ export class SubChunk {
       let usingNetworkRuntimeIds = paletteType & 1
 
       if (!usingNetworkRuntimeIds && (format === StorageType.Runtime)) {
-        console.log(usingNetworkRuntimeIds, format)
+        // console.log(usingNetworkRuntimeIds, format)
         throw new Error('Expected network encoding while decoding SubChunk at y=' + this.y)
       }
 
@@ -140,6 +140,7 @@ export class SubChunk {
       let mappedBlock = { globalIndex: index, name, states, version }
       this.palette2[storage].set(index, mappedBlock)
     }
+    // console.log('Loaded palette', this.palette2)
   }
 
   async loadLocalPalette(storage: int, stream: Stream, length: int, overNetwork: boolean) {
@@ -221,7 +222,7 @@ export class SubChunk {
         // Builds JS pallete array to be serialized to NBT
         const p = this.exportLocalPalette(l)
         for (let tag of p) {
-          console.log('Saving', JSON.stringify(tag))
+          // console.log('Saving', JSON.stringify(tag))
           let buf = nbt.writeUncompressed(tag, format == StorageType.LocalPersistence ? 'little' : 'littleVarint')
           stream.append(buf)
         }
@@ -251,6 +252,7 @@ export class SubChunk {
         const new_jsid = this.factory.getJSIDFromBRID(index)
         pblock = this.factory.getPBlockFromStateID(new_jsid)
         // console.warn('remapped', block, new_jsid, pblock)
+        // debugger;
       } else {
         console.warn(block)
         throw Error('Failed to remap block')
@@ -320,6 +322,7 @@ export class SubChunk {
       stream.writeVarInt(globalIndex)
       i++
     }
+    // console.log('Exporting global', this.palette2)
     return stream.getBuffer()
   }
 

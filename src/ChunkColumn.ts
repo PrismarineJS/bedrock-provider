@@ -7,6 +7,7 @@ import { StorageType, SubChunk } from './SubChunk'
 import nbt, { NBT } from "prismarine-nbt";
 import { Stream } from './Stream'
 import { BlobEntry, BlobStore, BlobType } from "./Blob";
+try { var v8 = require('v8') } catch {}
 
 const MIN_Y = 0
 const MAX_Y = 15
@@ -30,7 +31,7 @@ export class ChunkColumn {
   biomesUpdated = true
   biomesHash: Buffer | null
 
-  factory: BlockFactory = blockFactory
+  factory = blockFactory
 
   constructor(colVersion: Version, x: number, z: number) {
     this.version = colVersion
@@ -56,6 +57,14 @@ export class ChunkColumn {
     return sec.setBlock(x, y & 0xf, z, block)
   }
 
+  getBlockStateId(pos) {
+    return this.getBlock(pos)?.stateId
+  }
+
+  setBlockStateId(pos, runtimeId: number) {
+    return this.sections[0].setBlockID(pos.l || 0, pos.x, pos.y, pos.z, runtimeId)
+  }
+
   addSection(section: SubChunk) {
     this.sections.push(section)
     this.sectionsLen++
@@ -70,7 +79,7 @@ export class ChunkColumn {
   }
 
   addBlockEntity(nbt) {
-    console.log('[wp] adding tile', nbt)
+    // console.log('[wp] adding tile', nbt)
     const x = nbt.value.x.value
     const z = nbt.value.z.value
     this.tiles[x + ',' + z] = nbt
@@ -90,6 +99,7 @@ export class ChunkColumn {
 
   getBiome({ x, y, z }) {
     //todo
+    return 0
   }
 
   setBiome({ x, y, z }, biome) {
@@ -244,6 +254,49 @@ export class ChunkColumn {
     }
 
     return misses
+  }
+
+
+  /* Serialization */
+  serialize() {
+    if (typeof v8 === 'undefined') {
+      throw Error('String serialization not yet supported')
+    } else {
+      const copy = { ...this, sections: [] }
+      delete copy.factory
+      for (const section of this.sections) {
+        const sec = { ...section }
+        delete sec.factory
+        copy.sections.push(v8.serialize(sec))
+      }
+      return v8.serialize(copy)
+    }
+  }
+
+  toJson() { return this.serialize() }
+
+  static deserialize(obj) {
+    if (typeof obj === 'string') {
+      // Oject.assign(this, JSON.parse(obj))
+      throw Error('String serialization not yet supported')
+    } else { // Buffer
+      const des = v8.deserialize(obj)
+      // @ts-ignore : we don't do anything special in the constructor, Object.assign should work
+      const chunk = new ChunkColumn()
+      Object.assign(chunk, des)
+      chunk.sections = []
+      for (const section of des.sections) {
+        // @ts-ignore : same for above
+        const s = new SubChunk(chunk.factory)
+        chunk.sections.push(Object.assign(s, v8.deserialize(section)))
+      }
+      // console.log('Des',obj,chunk)
+      return chunk
+    }
+  }
+
+  static fromJson(obj) {
+    return ChunkColumn.deserialize(obj)
   }
 }
 

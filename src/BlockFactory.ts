@@ -87,11 +87,13 @@ export class BlockFactory {
   data: {
     [key: string]: {
       // Bedrock Runtime ID to Bedrock Block State string
-      brid2bss?: { j: string, b: string }[],
+      brid2bss?: { j: string, b: string }[],//
       // Bedrock Block state string to Bedrock Runtime ID
       bss2brid?: { [key: string]: int },
       // Same as above but for Java block state strings
       jss2brid?: { [key: string]: int },
+      // Java State String to state ID
+      jss2jsid?: { [key: string]: int },
 
       // Bedrock Runtime ID to Java state ID - this is generated at runtime
       brid2jsid?: { [key: number]: int },
@@ -117,6 +119,7 @@ export class BlockFactory {
     this.Block = PBlock(version || pver)
   }
 
+  // TODO: we need a serious refactor here in the future
   initialize(bedrockVersion: int | string) {
     let { str: gameVersion, int: dataVersion } = getVersion(bedrockVersion)
     // console.log('Version', dataVersion, gameVersion)
@@ -141,10 +144,13 @@ export class BlockFactory {
       bss2brid: require(root + 'blocks/BSS.json'),
       blockstates: require(root + 'blocks/BlockStates.json'),
       jss2brid: require(root + 'blocks/J2BRID.json'),
+      jss2jsid: {},
       brid2jsid: require(root + 'blocks/J2BRID.json'),
       jsid2brid: []
     }
     if (alias) this.data[alias] = this.data[gameVersion]
+
+    const d = this.data[gameVersion]
 
     // CACHE SOME MAPS
     // optimization for quick conversion
@@ -158,16 +164,18 @@ export class BlockFactory {
       let block = this.Block.fromStateId(i, 0)
       let props = block.getProperties()
       let bss = BlockFactory.buildBSS('minecraft:' + block.name, props)
+      d.jss2jsid[bss] = i
       // console.log('bss', bss, data[version].jss2brid[bss])
       jsid2brid.push(this.data[gameVersion].jss2brid[bss])
       a.push(bss)
     }
-    this.data[gameVersion].jsid2brid = jsid2brid
-    for (let i = 0; i < jsid2brid.length; i++) {
-      let brid = jsid2brid[i]
-      this.data[gameVersion].brid2jsid[brid] = i
-      // if (!brid) console.log(brid, i)
-      // this.nextRuntimeID()
+    d.jsid2brid = jsid2brid
+
+    const bedrock2Java = require(root + 'blocks/Bedrock2Java.json')
+    for (const key in bedrock2Java) {
+      const brid = d.bss2brid[key]
+      const jsid = d.jss2jsid[bedrock2Java[key]]
+      d.brid2jsid[brid] = jsid
     }
   }
 
