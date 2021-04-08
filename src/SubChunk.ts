@@ -6,7 +6,15 @@ import { Block } from "prismarine-block";
 import { getChecksum } from './format'
 
 const LOG = (...args) => { }
-// console.debug('[cc]', ...args)
+
+export type BedrockBlock = Block & {
+  // The Bedrock runtime ID for this block, version dependent
+  brid?: number
+  // The Bedrock data version this block was from
+  bedrockVersion?: number
+  // missing from p-block definitions ...
+  states?
+}
 
 // See the Blob docs for details
 export enum StorageType {
@@ -16,6 +24,7 @@ export enum StorageType {
 }
 
 export class SubChunk {
+  factory: BlockFactory
   columnVersion: number
   sectionVersion: number
   y: number
@@ -36,17 +45,19 @@ export class SubChunk {
    * @param buffer 
    * @param y 
    */
-  constructor(columnVersion: number, y = 0, initialize = true) {
+  constructor(blockFactory: BlockFactory, columnVersion: number, y = 0, initialize = true) {
+    this.factory = blockFactory
     this.columnVersion = columnVersion
     this.y = y
     this.palette2 = []
     this.blocks = []
+
     if (initialize) {
       // Fill first layer with zero
       this.blocks.push(new Uint16Array(4096))
       // Set zero to be air, Add to the palette
-      const air = BlockFactory.getRuntimeID('minecraft:air', {}, 17825808)
-      this.addToPalette(0, air, 17825808)
+      const air = blockFactory.getRuntimeID('minecraft:air', {})
+      this.addToPalette(0, air)
     }
   }
 
@@ -65,7 +76,7 @@ export class SubChunk {
       let usingNetworkRuntimeIds = paletteType & 1
 
       if (!usingNetworkRuntimeIds && (format === StorageType.Runtime)) {
-        console.log(usingNetworkRuntimeIds, format)
+        // console.log(usingNetworkRuntimeIds, format)
         throw new Error('Expected network encoding while decoding SubChunk at y=' + this.y)
       }
 
@@ -105,9 +116,8 @@ export class SubChunk {
           // console.log('*GET',this.y, x,y,z,localIndex)
           console.assert(localIndex < count)
           if (localIndex >= count) {
-            console.warn("ERROR: PalettedSubChunk: BLOCK AT %d, %d, %d is out of palette bounds! (%d/%d)\n", x, y, z, localIndex, count)
             this.blocks[storage][((x << 8) | (z << 4) | y)] = 0
-            throw Error()
+            throw Error('bad palette')
           }
           // let paletted_block = this.palette[bsv]
           this.blocks[storage][((x << 8) | (z << 4) | y)] = map[localIndex]
@@ -121,16 +131,16 @@ export class SubChunk {
 
     for (let i = 0; i < length; i++) {
       let index = stream.readVarInt()
-      let block = BlockFactory.getBlockState(index)
+      let block = this.factory.getBlockState(index)
 
       let name: string = block.name.value
       let states: object = block.states
       let version = block.version.value
-      if (typeof version == 'object') version = version[1] // temp
 
       let mappedBlock = { globalIndex: index, name, states, version }
       this.palette2[storage].set(index, mappedBlock)
     }
+    // console.log('Loaded palette', this.palette2)
   }
 
   async loadLocalPalette(storage: int, stream: Stream, length: int, overNetwork: boolean) {
@@ -149,7 +159,7 @@ export class SubChunk {
       let name = parsed.value.name.value as string
       let states = parsed.value.states
       let version = parsed.value.version.value as number
-      let index = BlockFactory.getRuntimeID(name, states, version)
+      let index = this.factory.getRuntimeID(name, states, version)
       // PaletteMappedBlockID mapped_block{ name, meta, index }
       let mappedBlock = { globalIndex: index, name, states, version }
       this.palette2[storage].set(index, mappedBlock)
@@ -212,7 +222,7 @@ export class SubChunk {
         // Builds JS pallete array to be serialized to NBT
         const p = this.exportLocalPalette(l)
         for (let tag of p) {
-          console.log('Saving', JSON.stringify(tag))
+          // console.log('Saving', JSON.stringify(tag))
           let buf = nbt.writeUncompressed(tag, format == StorageType.LocalPersistence ? 'little' : 'littleVarint')
           stream.append(buf)
         }
@@ -221,27 +231,28 @@ export class SubChunk {
   }
 
   setBlock(x: int, y: int, z: int, block: Block) {
-    // @ts-ignore
-    let brid = block['brid'] || BlockFactory.getBRIDFromJSID(block.stateId || block.defaultState)
+    // @ts-ignore - try to set the block based on the bedrock Runtime ID if it exists, else get BRID from Java state ID
+    let brid = block['brid'] || this.factory.getBRIDFromJSID(block.stateId || block.defaultState)
     this.setBlockID(0, x, y, z, brid)
     // console.log(`Setting ${x} ${y} ${z} layer 0 to ${brid}`, block, /*this.palette2[0],*/ this.getBlockID(0, x, y, z))
   }
 
-  getBlock(x: int, y: int, z: int): Block {
-    let block = this.getBlockID(0, x, y, z)
+  getBlock(x: int, y: int, z: int): BedrockBlock {
+    const block = this.getBlockID(0, x, y, z)
     // console.log('block',block,this.palette2)
     let brid = block?.globalIndex || 0
     // console.log(`Got ${x} ${y} ${z} layer 0 to ${brid}`)
-    let jsid = BlockFactory.getJSIDFromBRID(brid)
-    let pblock = BlockFactory.getPBlockFromStateID(jsid)
+    let jsid = this.factory.getJSIDFromBRID(brid)
+    let pblock = this.factory.getPBlockFromStateID(jsid) as BedrockBlock
     if (!jsid && brid) {
       // no JSID mapping (0), but bedrock block exists, so try to translate
       // using just block name to try get a similar block rather than air
-      const index = BlockFactory.getSimilarRuntimeID(block.name, block.version)
+      const index = this.factory.getSimilarRuntimeID(block.name, block.version)
       if (index != -1) {
-        const new_jsid = BlockFactory.getJSIDFromBRID(index)
-        pblock = BlockFactory.getPBlockFromStateID(new_jsid)
+        const new_jsid = this.factory.getJSIDFromBRID(index)
+        pblock = this.factory.getPBlockFromStateID(new_jsid)
         // console.warn('remapped', block, new_jsid, pblock)
+        debugger;
       } else {
         console.warn(block)
         throw Error('Failed to remap block')
@@ -256,11 +267,10 @@ export class SubChunk {
     return pblock
   }
 
-  addToPalette(l, runtimeId, version = 0) {
+  addToPalette(l, runtimeId) {
     while (this.palette2.length <= l) this.palette2.push(new Map())
-    let state = BlockFactory.getBlockState(runtimeId)
-    const ver = state.version[1] ? state.version[1] : state.version
-    this.palette2[l].set(runtimeId, { globalIndex: runtimeId, name: state.name.value, states: state.states, version: ver })
+    let state = this.factory.getBlockState(runtimeId)
+    this.palette2[l].set(runtimeId, { globalIndex: runtimeId, name: state.name.value, states: state.states, version: state.version })
     // console.log('Added to palette', l, JSON.stringify(this.palette2[l]))
     if (!state.name) throw Error('Adding nameless block to palette')
   }
@@ -312,6 +322,7 @@ export class SubChunk {
       stream.writeVarInt(globalIndex)
       i++
     }
+    // console.log('Exporting global', this.palette2)
     return stream.getBuffer()
   }
 

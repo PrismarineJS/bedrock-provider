@@ -29,8 +29,8 @@ async function testWorldLoading() {
         for (var y = 0; y < 255; y += 3) {
           for (var z = 0; z < 4; z++) {
             const blk = Block.fromStateId(rand(1, 10))
-            cc.setBlock(x, y, z, blk)
-            const block2 = cc.getBlock(x, y, z)
+            cc.setBlock({ x, y, z }, blk)
+            const block2 = cc.getBlock({ x, y, z })
             if (blk.name !== block2.name) {
               console.log('Got new block', blk, block2)
               throw Error('ID mismatch')
@@ -83,7 +83,7 @@ async function testNetworkWithCache() {
     for (let y = 5; y < 256; y += 3) {
       for (let z = 3; z < 12; z++) {
         const block = Block.fromStateId(2)
-        column.setBlock(x, y, z, block)
+        column.setBlock({ x, y, z }, block)
       }
     }
   }
@@ -91,7 +91,7 @@ async function testNetworkWithCache() {
   for (let x = 0; x < 16; x++) {
     for (let y = 5; y < 256; y += 3) {
       for (let z = 3; z < 12; z++) {
-        const blk = column.getBlock(x, y, z)
+        const blk = column.getBlock({ x, y, z })
         console.assert(blk.stateId == 2)
       }
     }
@@ -114,7 +114,7 @@ async function testNetworkWithBadCache() {
     for (let y = 5; y < 22; y += 2) {
       for (let z = 3; z < 12; z++) {
         const block = Block.fromStateId(rand(1, 2))
-        column.setBlock(x, y, z, block)
+        column.setBlock({ x, y, z }, block)
       }
     }
   }
@@ -122,7 +122,7 @@ async function testNetworkWithBadCache() {
   for (let x = 0; x < 16; x++) {
     for (let y = 5; y < 22; y += 2) {
       for (let z = 3; z < 12; z++) {
-        const blk = column.getBlock(x, y, z)
+        const blk = column.getBlock({ x, y, z })
         console.assert(blk.stateId == 2 || blk.stateId == 1)
       }
     }

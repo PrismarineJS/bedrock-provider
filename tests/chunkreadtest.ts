@@ -43,7 +43,7 @@ export async function blobTest() {
     for (let y = 5; y < 16; y++) {
       for (let z = 3; z < 12; z++) {
         const block = Block.fromStateId(2)
-        column.setBlock(x, y, z, block)
+        column.setBlock({ x, y, z }, block)
       }
     }
   }
@@ -51,7 +51,7 @@ export async function blobTest() {
   for (let x = 0; x < 16; x++) {
     for (let y = 5; y < 16; y++) {
       for (let z = 3; z < 12; z++) {
-        const blk = column.getBlock(x, y, z)
+        const blk = column.getBlock({ x, y, z })
         console.assert(blk.stateId == 2)
       }
     }

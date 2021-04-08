@@ -1,3 +1,9 @@
+## 1.0.0
+
+* (Breaking) ChunkColumn : `.setBlock, .getBlock, .getBiome, .setBiome, .getBlockEntity, .setBlockEntity` position paramaters are now a Vector3 { x, y, z } object
+* Version handling refactor
+* ChunkColumn: New .serialize, .deserialize methods for making copies. Adds toJson() and fromJson() as aliases, use toJson(true) to force JSON serialization
+
 ## 0.1.2
 
 Fix world loading bugs

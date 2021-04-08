@@ -4,11 +4,18 @@ import { ChunkColumn } from './ChunkColumn'
 import { StorageType, SubChunk } from './SubChunk'
 import NBT from 'prismarine-nbt'
 import { Stream } from './Stream'
+import { blockFactory, BlockFactory } from './BlockFactory'
 
 export class WorldProvider {
   db: LevelDB
   dimension: number
+  factory: BlockFactory = blockFactory
 
+  /**
+   * Creates a new Bedrock world provider
+   * @param db a LevelDB instance for this save file 
+   * @param options dimension - 0 for overworld, 1 for nether, 2 for end
+   */
   constructor(db: LevelDB, options?: { dimension: number }) {
     this.db = db
     if (!this.db.isOpen()) {
@@ -43,7 +50,7 @@ export class WorldProvider {
       for (let y = cc.minY; y < cc.maxY; y++) {
         let chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
-        const subchunk = new SubChunk(version, y, false)
+        const subchunk = new SubChunk(this.factory, version, y, false)
         await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
         cc.addSection(subchunk)
         // console.log('Raw chunk', chunk.toString('hex'))
