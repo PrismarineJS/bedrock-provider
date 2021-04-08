@@ -252,7 +252,7 @@ export class SubChunk {
         const new_jsid = this.factory.getJSIDFromBRID(index)
         pblock = this.factory.getPBlockFromStateID(new_jsid)
         // console.warn('remapped', block, new_jsid, pblock)
-        // debugger;
+        debugger;
       } else {
         console.warn(block)
         throw Error('Failed to remap block')

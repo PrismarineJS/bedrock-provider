@@ -5593,6 +5593,8 @@
   "minecraft:chiseled_nether_bricks[]": "minecraft:chiseled_nether_bricks[]",
   "minecraft:cracked_nether_bricks[]": "minecraft:cracked_nether_bricks[]",
   "minecraft:quartz_bricks[]": "minecraft:quartz_bricks[]",
+  "minecraft:flowing_water[liquid_depth=0]": "minecraft:water[level=0]",
+  "minecraft:flowing_lava[liquid_depth=0]": "minecraft:lava[level=0]",
   "minecraft:water[liquid_depth=1]": "minecraft:water[level=1]",
   "minecraft:water[liquid_depth=2]": "minecraft:water[level=2]",
   "minecraft:water[liquid_depth=3]": "minecraft:water[level=3]",

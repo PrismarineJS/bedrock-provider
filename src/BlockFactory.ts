@@ -162,6 +162,7 @@ export class BlockFactory {
 
     for (let i = 0; i < maxStateId; i++) {
       let block = this.Block.fromStateId(i, 0)
+      // @ts-ignore - TODO: fix in pblock
       let props = block.getProperties()
       let bss = BlockFactory.buildBSS('minecraft:' + block.name, props)
       d.jss2jsid[bss] = i
