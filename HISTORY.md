@@ -1,3 +1,8 @@
+## 1.0.1
+
+* Add 1.16.220 data
+* ChunkColumn: New .getBlockRuntimeID and .setBlockRuntimeID methods for network block updates
+
 ## 1.0.0
 
 * (Breaking) ChunkColumn : `.setBlock, .getBlock, .getBiome, .setBiome, .getBlockEntity, .setBlockEntity` position paramaters are now a Vector3 { x, y, z } object
