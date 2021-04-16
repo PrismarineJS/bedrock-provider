@@ -1,7 +1,7 @@
 
 /// <reference path="./global.d.ts" />
 import { Version, getChecksum } from "./format";
-import { BlockFactory, blockFactory } from './BlockFactory'
+import { blockFactory } from './BlockFactory'
 import { Block } from "prismarine-block";
 import { StorageType, SubChunk } from './SubChunk'
 import nbt, { NBT } from "prismarine-nbt";
@@ -63,6 +63,23 @@ export class ChunkColumn {
 
   setBlockStateId(pos, runtimeId: number) {
     return this.sections[0].setBlockID(pos.l || 0, pos.x, pos.y, pos.z, runtimeId)
+  }
+
+  getBlockRuntimeID({ l, x, y, z }) {
+    let Y = y >> 4
+    let sec = this.sections[this.minY + Y]
+    if (sec) return sec.getBlockID(l ?? 0, x, y & 0xf, z)
+  }
+
+  setBlockRuntimeID({ l, x, y, z }, runtimeId: number) {
+    let Y = y >> 4
+    if (Y < this.minY || Y > this.maxY) return
+    let sec = this.sections[this.minY + Y]
+    while (!sec) {
+      this.addSection(new SubChunk(this.factory, this.version, this.sections.length))
+      sec = this.sections[this.minY + Y]
+    }
+    return sec.setBlockID(l ?? 0, x, y & 0xf, z, runtimeId)
   }
 
   addSection(section: SubChunk) {
