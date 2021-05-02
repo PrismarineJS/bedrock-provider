@@ -1,15 +1,15 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
-import xxhash from "xxhash-wasm";
+import xxhash from 'xxhash-wasm'
 
 export enum Version {
   v9_00 = 0,
-  v9_02 = 1,    //added to fix the grass color being corrupted
-  v9_05 = 2,    //make sure that biomes are not corrupted
-  v17_0 = 3,  //switch to a key per subchunk + 2D data
-  v18_0 = 4,    //made beds be block entities
+  v9_02 = 1, // added to fix the grass color being corrupted
+  v9_05 = 2, // make sure that biomes are not corrupted
+  v17_0 = 3, // switch to a key per subchunk + 2D data
+  v18_0 = 4, // made beds be block entities
   vConsole1_to_v18_0 = 5, // converted from another version of the game
-  v1_2_0 = 6, //Format added in MC1.2 - for upgrading structure spawners
-  v1_2_0_bis = 7, //second format added in MC1.2 - to remove dynamic water in oceans
+  v1_2_0 = 6, // Format added in MC1.2 - for upgrading structure spawners
+  v1_2_0_bis = 7, // second format added in MC1.2 - to remove dynamic water in oceans
   v1_4_0 = 8,
   v1_16 = 0x15
 }
@@ -35,8 +35,8 @@ export enum Tag {
 globalThis.ckeys = []
 
 export class KeyBuilder {
-  static buildChunkKey(x: int, y: byte, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildChunkKey (x: int, y: byte, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -48,8 +48,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildEntityKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildEntityKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -59,8 +59,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildBlockEntityKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildBlockEntityKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -70,8 +70,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildHeightmapAndBiomeKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildHeightmapAndBiomeKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -81,8 +81,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildBiomeStateKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildBiomeStateKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -92,8 +92,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildSpawnAreaKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildSpawnAreaKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -103,8 +103,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildVersionKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildVersionKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -115,8 +115,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildFinalizedState(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildFinalizedState (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -126,8 +126,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildLegacyVersionKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildLegacyVersionKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -137,8 +137,8 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
-  static buildBorderBlocksKey(x: int, z: int, dimId: int) {
-    let stream = new BinaryStream()
+  static buildBorderBlocksKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
     stream.writeLInt(x)
     stream.writeLInt(z)
     if (dimId) {
@@ -149,20 +149,20 @@ export class KeyBuilder {
   }
 }
 
-export type KeyData = {
-  x?: number,
-  z?: number,
-  y?: number,
-  dim?: number,
-  type?: string,
-  tagId?: number,
-  keyLen?: number,
-  valLen?: number,
-  skey?: String,
+export interface KeyData {
+  x?: number
+  z?: number
+  y?: number
+  dim?: number
+  type?: string
+  tagId?: number
+  keyLen?: number
+  valLen?: number
+  skey?: String
   key?: Buffer
 }
 
-export async function recurseMinecraftKeys(db) {
+export async function recurseMinecraftKeys (db) {
   /* eslint-disable */
   function readKey(buffer: Buffer): KeyData[] {
     let offset = 0

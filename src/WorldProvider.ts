@@ -13,10 +13,10 @@ export class WorldProvider {
 
   /**
    * Creates a new Bedrock world provider
-   * @param db a LevelDB instance for this save file 
+   * @param db a LevelDB instance for this save file
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
    */
-  constructor(db: LevelDB, options?: { dimension: number }) {
+  constructor (db: LevelDB, options?: { dimension: number }) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
@@ -24,49 +24,44 @@ export class WorldProvider {
     this.dimension = options.dimension || 0
   }
 
-  private async get(key): Promise<Buffer | null> {
-    // @ts-ignore
-    try { return await this.db.get(key) }
-    catch (e) { return null }
-    // catch (e) { throw new Error('Database get error ' + e.stack) }
+  private async get (key): Promise<Buffer | null> {
+    try { return await this.db.get(key) } catch (e) { return null }
   }
 
-  private readNewVersion = async (x, z) => await this.get(KeyBuilder.buildVersionKey(x, z, this.dimension))
-  private readOldVersion = async (x, z) => await this.get(KeyBuilder.buildLegacyVersionKey(x, z, this.dimension))
+  private readonly readNewVersion = async (x, z) => await this.get(KeyBuilder.buildVersionKey(x, z, this.dimension))
+  private readonly readOldVersion = async (x, z) => await this.get(KeyBuilder.buildLegacyVersionKey(x, z, this.dimension))
 
-  async getChunkVersion(x, z): Promise<byte> {
-    let version = await this.readNewVersion(x, z) || await this.readOldVersion(x, z)
+  async getChunkVersion (x, z): Promise<byte> {
+    const version = await this.readNewVersion(x, z) || await this.readOldVersion(x, z)
     // console.log('v', version)
     return version ? version[0] : null
   }
 
-  hasChunk = async (x, z) => await this.getChunkVersion(x, z) ? true : false
+  hasChunk = async (x, z) => !!await this.getChunkVersion(x, z)
 
-  async readSubChunks(x, z, version?) {
-    let ver = version || await this.getChunkVersion(x, z)
+  async readSubChunks (x, z, version?) {
+    const ver = version || await this.getChunkVersion(x, z)
     if (ver >= Version.v17_0) {
-      let cc = new ChunkColumn(ver, x, z)
+      const cc = new ChunkColumn(ver, x, z)
       // TODO: Load height based on version
       for (let y = cc.minY; y < cc.maxY; y++) {
-        let chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
+        const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
         const subchunk = new SubChunk(this.factory, version, y, false)
         await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
         cc.addSection(subchunk)
-        // console.log('Raw chunk', chunk.toString('hex'))
       }
       return cc
     }
     return null
   }
 
-  async readEntities(x, z, version): Promise<NBT.NBT[]> {
-    let ver = version || await this.getChunkVersion(x, z)
+  async readEntities (x, z, version): Promise<NBT.NBT[]> {
+    const ver = version || await this.getChunkVersion(x, z)
     const ret = []
     if (ver >= Version.v17_0) {
-      let key = KeyBuilder.buildEntityKey(x, z, this.dimension)
-      let buffer = await this.get(key) as Buffer & { startOffset }
-      // console.log('Entities', key, buffer)
+      const key = KeyBuilder.buildEntityKey(x, z, this.dimension)
+      const buffer = await this.get(key) as Buffer & { startOffset }
 
       if (buffer) {
         buffer.startOffset = 0
@@ -75,21 +70,18 @@ export class WorldProvider {
 
           buffer.startOffset += metadata.size
           ret.push(parsed)
-          // console.log(buffer.startOffset, metadata.size, buffer.length)
         }
       }
     }
-    // console.log('Entities', ret)
     return ret
   }
 
-  async readBlockEntities(x, z, version): Promise<NBT.NBT[]> {
-    let ver = version || await this.getChunkVersion(x, z)
+  async readBlockEntities (x, z, version): Promise<NBT.NBT[]> {
+    const ver = version || await this.getChunkVersion(x, z)
     const ret = []
     if (ver >= Version.v17_0) {
-      let key = KeyBuilder.buildBlockEntityKey(x, z, this.dimension)
-      let buffer = await this.get(key) as Buffer & { startOffset }
-      // console.log('Entities', key, buffer)
+      const key = KeyBuilder.buildBlockEntityKey(x, z, this.dimension)
+      const buffer = await this.get(key) as Buffer & { startOffset }
 
       if (buffer) {
         buffer.startOffset = 0
@@ -98,16 +90,14 @@ export class WorldProvider {
 
           buffer.startOffset += metadata.size
           ret.push(parsed)
-          // console.log(buffer.startOffset, metadata.size, buffer.length)
         }
       }
     }
-    // console.log('BlockEntities', ret)
     return ret
   }
 
-  async readBiomesAndElevation(x, z, version): Promise<{ heightmap: Buffer, biomes2d: Buffer } | null> {
-    let ver = version || await this.getChunkVersion(x, z)
+  async readBiomesAndElevation (x, z, version): Promise<{ heightmap: Buffer, biomes2d: Buffer } | null> {
+    const ver = version || await this.getChunkVersion(x, z)
     if (ver >= Version.v17_0) {
       const buffer = await this.get(KeyBuilder.buildHeightmapAndBiomeKey(x, z, this.dimension))
       if (buffer) {
@@ -115,15 +105,14 @@ export class WorldProvider {
         const heightmap = buffer.slice(0, 512)
         // TODO: this will most likely change in 1.17
         const biomes2d = buffer.slice(512, 512 + 256)
-        // console.log('Buffer len', buffer.length)
         return { heightmap, biomes2d }
       }
     }
     return null
   }
 
-  async readBorderBlocks(x, z, version) {
-    let ver = version || await this.getChunkVersion(x, z)
+  async readBorderBlocks (x, z, version) {
+    const ver = version || await this.getChunkVersion(x, z)
     if (ver >= Version.v17_0) {
       const buffer = await this.get(KeyBuilder.buildBorderBlocksKey(x, z, this.dimension))
       return buffer
@@ -131,28 +120,25 @@ export class WorldProvider {
     return null
   }
 
-  async writeSubChunks(column: ChunkColumn): Promise<any> {
-    let formatVer = column.version
-    // let sections = column.getSections()
-    let promises = []
+  async writeSubChunks (column: ChunkColumn): Promise<any> {
+    const formatVer = column.version
+    const promises = []
     if (formatVer >= Version.v17_0) {
       for (let y = column.minY; y < column.maxY; y++) {
-        let section = column.getSection(y)
-        // console.log('Save', y, section)
+        const section = column.getSection(y)
         if (!section) {
           break // no more sections
         }
-        // globalThis.ckeys.push('save:')
-        let key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
-        let buf = await section.encode(formatVer, StorageType.LocalPersistence)
+        const key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
+        const buf = await section.encode(formatVer, StorageType.LocalPersistence)
         promises.push(this.db.put(key, buf))
       }
     }
 
-    return Promise.all(promises)
+    return await Promise.all(promises)
   }
 
-  writeEntities(column: ChunkColumn) {
+  writeEntities (column: ChunkColumn) {
 
   }
 
@@ -162,13 +148,11 @@ export class WorldProvider {
    * @param z position of chunk
    * @param full include entities, tiles, height map and biomes
    */
-  async load(x: number, z: number, full: boolean) {
-    let cver = await this.getChunkVersion(x, z)
-    // console.log('Chunk ver', cver)
-    if (cver) {
-      let column = await this.readSubChunks(x, z, cver)
-      // console.log('Read chunk', column)
+  async load (x: number, z: number, full: boolean) {
+    const cver = await this.getChunkVersion(x, z)
 
+    if (cver) {
+      const column = await this.readSubChunks(x, z, cver)
       if (full) {
         const tiles = await this.readBlockEntities(x, z, cver)
         column.entities = await this.readEntities(x, z, cver)
@@ -182,11 +166,11 @@ export class WorldProvider {
     }
   }
 
-  async save(column: ChunkColumn) {
-    return this.writeSubChunks(column)
+  async save (column: ChunkColumn) {
+    return await this.writeSubChunks(column)
   }
 
-  async getKeys(): Promise<KeyData[]> {
-    return recurseMinecraftKeys(this.db)
+  async getKeys (): Promise<KeyData[]> {
+    return await recurseMinecraftKeys(this.db)
   }
 }

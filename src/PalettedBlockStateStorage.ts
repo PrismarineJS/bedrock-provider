@@ -1,6 +1,6 @@
 // https://gist.github.com/extremeheat/c1be82ab4a1c5eb5945de5d98b520eb3
 
-import { Stream } from "./Stream"
+import { Stream } from './Stream'
 
 const wordByteSize: int = 4
 const wordBitSize: int = wordByteSize * 8
@@ -13,7 +13,7 @@ export class PalettedBlockStateStorage {
   mask: int
   array: Uint32Array
 
-  constructor(bitsPerBlock) {
+  constructor (bitsPerBlock: int) {
     this.bitsPerBlock = bitsPerBlock
     this.blocksPerWord = Math.floor(wordBitSize / bitsPerBlock)
     this.paddingPerWord = wordBitSize % bitsPerBlock
@@ -22,44 +22,44 @@ export class PalettedBlockStateStorage {
     this.array = new Uint32Array(this.wordsCount)
   }
 
-  read(stream: Stream) {
-    let buf = stream.read(this.wordsCount * wordByteSize)
+  read (stream: Stream) {
+    const buf = stream.read(this.wordsCount * wordByteSize)
     this.array = new Uint32Array(new Uint8Array(buf).buffer)
   }
 
-  write(stream: Stream) {
+  write (stream: Stream) {
     stream.append(Buffer.from(this.array.buffer))
   }
 
-  getBuffer() {
+  getBuffer (): Buffer {
     return Buffer.from(this.array.buffer)
   }
 
-  readBits(index, offset) {
+  readBits (index: int, offset: int) {
     return (this.array[index] >> offset) & this.mask
   }
 
-  writeBits(index, offset, data) {
+  writeBits (index: int, offset: int, data: int) {
     this.array[index] &= ~(this.mask << offset)
     this.array[index] |= (data & this.mask) << offset
   }
 
-  getIndex(x, y, z) {
+  getIndex (x: int, y: int, z: int) {
     x &= 0xf
     y &= 0xf
     z &= 0xf
-    let index = Math.floor(((x << 8) | (z << 4) | y) / this.blocksPerWord)
-    let offset = (((x << 8) | (z << 4) | y) % this.blocksPerWord) * this.bitsPerBlock
-    return [ index, offset ]
+    const index = Math.floor(((x << 8) | (z << 4) | y) / this.blocksPerWord)
+    const offset = (((x << 8) | (z << 4) | y) % this.blocksPerWord) * this.bitsPerBlock
+    return [index, offset]
   }
 
-  getBlockStateAt(x, y, z) {
-    const [ index, offset ] = this.getIndex(x, y, z)
+  getBlockStateAt (x: int, y: int, z: int): int {
+    const [index, offset] = this.getIndex(x, y, z)
     return this.readBits(index, offset)
   }
 
-  setBlockStateAt(x, y, z, data) {
-    const [ index, offset ] = this.getIndex(x, y, z)
+  setBlockStateAt (x: int, y: int, z: int, data: int) {
+    const [index, offset] = this.getIndex(x, y, z)
     this.writeBits(index, offset, data)
   }
 }
