@@ -1,8 +1,8 @@
-const v8 = require('v8')
+// const v8 = require('v8')
 /**
  * If you'd believe it, Mojang actually releases docs..... !
  * https://gist.github.com/Tomcc/4be79d3eafcd158c5059abd4ab2e8d35
- * 
+ *
  */
 
 export const enum BlobType {
@@ -17,7 +17,7 @@ export class BlobEntry {
   type = BlobType.ChunkSection
   key: string
   created = Date.now()
-  constructor(args) {
+  constructor (args) {
     Object.assign(this, args)
   }
 }
@@ -33,25 +33,25 @@ export class BlobStore extends Map {
   backendPath: string
   cacheSize: number
 
-  constructor(size = 64) {
+  constructor (size = 64) {
     super()
     this.cacheSize = size
-    //this.backendPath = path
+    // this.backendPath = path
   }
 
-  gc() {
+  gc () {
     const values = Object.values(this)
-    values.sort((a,b) => a.created - b.created)
+    values.sort((a, b) => a.created - b.created)
     while (values.length > this.size) {
       this.delete(values.pop().key)
     }
   }
 
-  serialize(val) {
+  serialize (val) {
 
   }
 
-  write(key: string | Buffer, value: BlobEntry) {
+  write (key: string | Buffer, value: BlobEntry) {
     if (key instanceof Uint8Array) {
       key = key.toString('hex')
     }
@@ -62,14 +62,14 @@ export class BlobStore extends Map {
     this.set(key, value)
   }
 
-  read(key: string | Buffer): BlobEntry | any {
+  read (key: string | Buffer): BlobEntry | any {
     if (key instanceof Uint8Array) {
       key = key.toString('hex')
     }
     return this.get(key)
   }
 
-  has(key: string | Buffer) {
+  has (key: string | Buffer) {
     if (key instanceof Uint8Array) {
       key = key.toString('hex')
     }
@@ -79,14 +79,14 @@ export class BlobStore extends Map {
   /**
    * Save on disk
    */
-  async save() {
+  async save () {
     // todo
   }
 
   /**
    * Load blobs from disk
    */
-  async load() {
+  async load () {
 
   }
 }

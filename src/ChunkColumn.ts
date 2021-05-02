@@ -1,12 +1,11 @@
-
 /// <reference path="./global.d.ts" />
-import { Version, getChecksum } from "./format";
+import { Version, getChecksum } from './format'
 import { blockFactory } from './BlockFactory'
-import { Block } from "prismarine-block";
-import { StorageType, SubChunk } from './SubChunk'
-import nbt, { NBT } from "prismarine-nbt";
+import { Block } from 'prismarine-block'
+import { PaletteEntry, StorageType, SubChunk } from './SubChunk'
+import nbt, { NBT } from 'prismarine-nbt'
 import { Stream } from './Stream'
-import { BlobEntry, BlobStore, BlobType } from "./Blob";
+import { BlobEntry, BlobStore, BlobType } from './Blob'
 try { var v8 = require('v8') } catch {}
 
 const MIN_Y = 0
@@ -33,21 +32,21 @@ export class ChunkColumn {
 
   factory = blockFactory
 
-  constructor(colVersion: Version, x: number, z: number) {
+  constructor (colVersion: Version, x: number, z: number) {
     this.version = colVersion
     this.x = x
     this.z = z
   }
 
-  getBlock({ x, y, z }): Block {
-    let Y = y >> 4
-    let sec = this.sections[this.minY + Y]
+  getBlock ({ x, y, z }): Block {
+    const Y = y >> 4
+    const sec = this.sections[this.minY + Y]
     if (sec) return sec.getBlock(x, y & 0xf, z)
     return this.factory.getPBlockFromStateID(0)
   }
 
-  setBlock({ x, y, z }, block: Block) {
-    let Y = y >> 4
+  setBlock ({ x, y, z }, block: Block) {
+    const Y = y >> 4
     if (Y < this.minY || Y > this.maxY) return
     let sec = this.sections[this.minY + Y]
     while (!sec) {
@@ -57,22 +56,22 @@ export class ChunkColumn {
     return sec.setBlock(x, y & 0xf, z, block)
   }
 
-  getBlockStateId(pos) {
+  getBlockStateId (pos) {
     return this.getBlock(pos)?.stateId
   }
 
-  setBlockStateId(pos, runtimeId: number) {
+  setBlockStateId (pos, runtimeId: number) {
     return this.sections[0].setBlockID(pos.l || 0, pos.x, pos.y, pos.z, runtimeId)
   }
 
-  getBlockRuntimeID({ l, x, y, z }) {
-    let Y = y >> 4
-    let sec = this.sections[this.minY + Y]
+  getBlockRuntimeID ({ l, x, y, z }): PaletteEntry {
+    const Y = y >> 4
+    const sec = this.sections[this.minY + Y]
     if (sec) return sec.getBlockID(l ?? 0, x, y & 0xf, z)
   }
 
-  setBlockRuntimeID({ l, x, y, z }, runtimeId: number) {
-    let Y = y >> 4
+  setBlockRuntimeID ({ l, x, y, z }, runtimeId: number) {
+    const Y = y >> 4
     if (Y < this.minY || Y > this.maxY) return
     let sec = this.sections[this.minY + Y]
     while (!sec) {
@@ -82,48 +81,48 @@ export class ChunkColumn {
     return sec.setBlockID(l ?? 0, x, y & 0xf, z, runtimeId)
   }
 
-  addSection(section: SubChunk) {
+  addSection (section: SubChunk) {
     this.sections.push(section)
     this.sectionsLen++
   }
 
-  getSection(y) {
+  getSection (y) {
     return this.sections[this.minY + y]
   }
 
-  addEntity(nbt) {
+  addEntity (nbt) {
     this.entities.push(nbt)
   }
 
-  addBlockEntity(nbt) {
+  addBlockEntity (nbt) {
     // console.log('[wp] adding tile', nbt)
     const x = nbt.value.x.value
     const z = nbt.value.z.value
     this.tiles[x + ',' + z] = nbt
   }
 
-  getSections(): SubChunk[] {
+  getSections (): SubChunk[] {
     return this.sections
   }
 
-  getEntities() {
+  getEntities () {
     return this.entities
   }
 
-  getBlockEntities() {
+  getBlockEntities () {
     return this.tiles
   }
 
-  getBiome({ x, y, z }) {
-    //todo
+  getBiome ({ x, y, z }) {
+    // todo
     return 0
   }
 
-  setBiome({ x, y, z }, biome) {
+  setBiome ({ x, y, z }, biome) {
     this.biomesUpdated = true
   }
 
-  async updateHash(fromBuf: Buffer | Uint8Array): Promise<Buffer> {
+  async updateHash (fromBuf: Buffer | Uint8Array): Promise<Buffer> {
     this.biomesUpdated = false
     this.biomesHash = await getChecksum(fromBuf)
     return this.biomesHash
@@ -133,7 +132,7 @@ export class ChunkColumn {
    * Encodes this chunk column for the network with no caching
    * @param buffer Full chunk buffer
    */
-  async networkEncodeNoCache(): Promise<Buffer> {
+  async networkEncodeNoCache (): Promise<Buffer> {
     const tileBufs = []
     for (const key in this.tiles) {
       const tile = this.tiles[key]
@@ -154,11 +153,11 @@ export class ChunkColumn {
 
   /**
    * Encodes this chunk column for use over network with caching enabled
-   * 
+   *
    * @param blobStore The blob store to write chunks in this section to
    * @returns {Promise<Buffer[]>} The blob hashes for this chunk, the last one is biomes, rest are sections
    */
-  async networkEncodeBlobs(blobStore: BlobStore): Promise<CCHash[]> {
+  async networkEncodeBlobs (blobStore: BlobStore): Promise<CCHash[]> {
     const blobHashes = [] as CCHash[]
     for (const section of this.sections) {
       const key = `${this.x},${section.y},${this.z}`
@@ -180,7 +179,7 @@ export class ChunkColumn {
     return blobHashes
   }
 
-  async networkEncode(blobStore: BlobStore) {
+  async networkEncode (blobStore: BlobStore) {
     const blobs = await this.networkEncodeBlobs(blobStore)
     const tileBufs = []
     for (const key in this.tiles) {
@@ -198,7 +197,7 @@ export class ChunkColumn {
     }
   }
 
-  async networkDecodeNoCache(buffer: Buffer, sectionCount: number) {
+  async networkDecodeNoCache (buffer: Buffer, sectionCount: number) {
     const stream = new Stream(buffer)
     this.sections = []
     // console.warn('Total Reading', sectionCount)
@@ -229,7 +228,7 @@ export class ChunkColumn {
    * @param {Buffer} payload The rest of the non-cached data
    * @returns {CCHash[]} A list of hashes we don't have and need. If len > 0, decode failed.
    */
-  async networkDecode(blobs: CCHash[], blobStore: BlobStore, payload): Promise<CCHash[]> {
+  async networkDecode (blobs: CCHash[], blobStore: BlobStore, payload): Promise<CCHash[]> {
     const stream = new Stream(payload)
     const borderblocks = stream.read(stream.readByte())
     if (borderblocks.length) console.debug('[wp] Skip ', borderblocks, 'bytes')
@@ -266,16 +265,15 @@ export class ChunkColumn {
         await subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
         this.addSection(subchunk)
       } else {
-        throw Error(`Unknown blob type: ` + entry.type)
+        throw Error('Unknown blob type: ' + entry.type)
       }
     }
 
     return misses
   }
 
-
   /* Serialization */
-  serialize() {
+  serialize () {
     if (typeof v8 === 'undefined') {
       throw Error('String serialization not yet supported')
     } else {
@@ -290,31 +288,30 @@ export class ChunkColumn {
     }
   }
 
-  toJson() { return this.serialize() }
+  toJson () { return this.serialize() }
 
-  static deserialize(obj) {
+  static deserialize (obj) {
     if (typeof obj === 'string') {
       // Oject.assign(this, JSON.parse(obj))
       throw Error('String serialization not yet supported')
     } else { // Buffer
       const des = v8.deserialize(obj)
-      // @ts-ignore : we don't do anything special in the constructor, Object.assign should work
+      // @ts-expect-error : we don't do anything special in the constructor, Object.assign should work
       const chunk = new ChunkColumn()
       Object.assign(chunk, des)
       chunk.sections = []
       for (const section of des.sections) {
-        // @ts-ignore : same for above
+        // @ts-expect-error : same for above
         const s = new SubChunk(chunk.factory)
         chunk.sections.push(Object.assign(s, v8.deserialize(section)))
       }
-      // console.log('Des',obj,chunk)
       return chunk
     }
   }
 
-  static fromJson(obj) {
+  static fromJson (obj) {
     return ChunkColumn.deserialize(obj)
   }
 }
 
-type CCHash = { type: BlobType, hash: Buffer }
+interface CCHash { type: BlobType, hash: Buffer }

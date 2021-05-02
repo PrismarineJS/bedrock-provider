@@ -4,5 +4,5 @@ import { Stream } from './Stream'
 import { Version } from './format'
 
 export = {
-    WorldProvider, ChunkColumn, Stream, Version
+  WorldProvider, ChunkColumn, Stream, Version
 }
