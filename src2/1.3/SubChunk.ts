@@ -8,13 +8,6 @@ import { BaseSubChunk } from './Chunk'
 
 const LOG = (...args) => { }
 
-// See the Blob docs for details
-export enum StorageType {
-  LocalPersistence,
-  NetworkPersistence,
-  Runtime
-}
-
 export type PaletteEntry = { globalIndex: short, name: string, states: object, version: number }
 
 export default function (version, subChunkVersion) {

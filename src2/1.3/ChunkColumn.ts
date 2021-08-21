@@ -1,7 +1,7 @@
 import { Vec3 } from 'vec3'
 import { Block } from 'prismarine-block'
 import nbt, { NBT } from 'prismarine-nbt'
-import subchunk from '../Sub'
+import subchunk from './SubChunk'
 
 const MIN_Y = 0
 const MAX_Y = 15

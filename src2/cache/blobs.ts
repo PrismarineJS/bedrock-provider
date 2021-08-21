@@ -36,7 +36,6 @@ export class BlobStore extends Map {
   constructor (size = 64) {
     super()
     this.cacheSize = size
-    // this.backendPath = path
   }
 
   gc () {

@@ -1,3 +1,4 @@
+import mcData, { Version } from 'minecraft-data'
 export class BaseChunkColumn {
   x: number
   z: number
@@ -14,8 +15,11 @@ export class BaseSubChunk {
   }
 }
 
-function convert(from, to, buf) {
-  return false
+// See the Blob docs for details
+export enum StorageType {
+  LocalPersistence,
+  NetworkPersistence,
+  Runtime
 }
 
 const data2minecraftVersion = {
@@ -69,17 +73,3 @@ const ChunkVersions = {
   "1.11.1.0": 13
 }
 
-const columns = {
-  '1.18': class {}
-}
-
-function getChunk (chunkVersion: number, wantedChunkVersion: number, buffers) {
-  // Sometimes when loading chunks from disk the versions are not always consistent, so we run a converter
-  // if it exists
-  const ret = CC => {
-    if (chunkVersion !== wantedChunkVersion) 
-      return convert(chunkVersion, wantedChunkVersion, buffers) ?? new CC(buffers) 
-    return new CC(buffers)
-  }
-  if (chunkVersion >= ChunkVersions['1.16.210.0']) return ret(columns['1.18'])
-}

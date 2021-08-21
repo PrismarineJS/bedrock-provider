@@ -1,22 +1,23 @@
-import { LevelDB } from 'leveldb-zlib'
-import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './format'
-import { ChunkColumn } from './ChunkColumn'
-import { StorageType, SubChunk } from './SubChunk'
+import type { LevelDB } from 'leveldb-zlib'
 import NBT from 'prismarine-nbt'
 import { Stream } from './Stream'
-import { blockFactory, BlockFactory } from './BlockFactory'
+import mcData from 'minecraft-data'
+import { getChunk } from './Chunk'
+import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './databaseKeys'
+
+const latestVersion = minecraft-data.versions['bedrock'].pop()
 
 export class WorldProvider {
   db: LevelDB
   dimension: number
-  factory: BlockFactory = blockFactory
 
   /**
    * Creates a new Bedrock world provider
    * @param db a LevelDB instance for this save file
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
+   *                version - The version to load the world as.
    */
-  constructor (db: LevelDB, options?: { dimension: number }) {
+  constructor (db: LevelDB, options?: { dimension: number, version = latestVersion.minecraftVersion }) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
@@ -42,7 +43,7 @@ export class WorldProvider {
   async readSubChunks (x, z, version?) {
     const ver = version || await this.getChunkVersion(x, z)
     if (ver >= Version.v17_0) {
-      const cc = new ChunkColumn(ver, x, z)
+      const cc = new getChunk(ver, x, z)
       // TODO: Load height based on version
       for (let y = cc.minY; y < cc.maxY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
