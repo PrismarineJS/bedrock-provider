@@ -1,9 +1,8 @@
-import { Vec3 } from 'vec3'
 import { Block } from 'prismarine-block'
 import nbt, { NBT } from 'prismarine-nbt'
 import subchunk from './SubChunk'
 import { getChecksum } from '../../cache/hash'
-import { StorageType } from '../Chunk'
+import { StorageType, Vec4 } from '../Chunk'
 import { BlobEntry, BlobStore, BlobType, CCHash } from '../../cache/blobs'
 import { Stream } from '../../Stream'
 import v8 from 'v8'
@@ -11,11 +10,7 @@ import v8 from 'v8'
 const MIN_Y = 0
 const MAX_Y = 15
 
-class Vec4 extends Vec3 {
-  l: number
-}
-
-module.exports = function (version) {
+export = function (version: string) {
   const SubChunk = subchunk(version, 8)
   type SubChunk = InstanceType<typeof SubChunk>
   return class ChunkColumn {

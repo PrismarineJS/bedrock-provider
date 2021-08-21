@@ -1,18 +1,17 @@
 import { LevelDB } from 'leveldb-zlib'
-import { BlobStore } from '../src/Blob';
-import { ChunkColumn } from '../src/ChunkColumn';
-import { Version } from '../src/format';
-import { WorldProvider } from '../src/WorldProvider'
+import { chunk, WorldProvider, BlobStore } from 'bedrock-provider'
 import { netBufferTest } from './chunkreadtest'
-const mcdata = require('minecraft-data')('1.16.1')
-const Block = require('prismarine-block')('1.16.1')
+
+const mcData = require('minecraft-data')('bedrock_1.17.10')
+const ChunkColumn = chunk('bedrock_1.17.10')
+const Block = require('prismarine-block')('bedrock_1.17.10')
 
 function rand(min, max) {
   return Math.floor(Math.random() * (max - min)) + min;
 }
 
 async function testWorldLoading() {
-  const gravel = mcdata.blocksByName.gravel
+  const gravel = mcData.blocksByName.gravel
 
   let db = new LevelDB('./mctestdb', { createIfMissing: false })
   await db.open()
@@ -60,7 +59,7 @@ async function testNetworkNoCache() {
 
       const buf = await cc.networkEncodeNoCache()
       console.log('Network encoded buffer', buf.toString('hex'))
-      const cc2 = new ChunkColumn(cc.version, key.x, key.z)
+      const cc2 = new ChunkColumn(key.x, key.z)
       await cc2.networkDecodeNoCache(buf, cc.sectionsLen)
 
       const buf2 = await cc2.networkEncodeNoCache()
@@ -77,7 +76,7 @@ async function testNetworkNoCache() {
 
 async function testNetworkWithCache() {
   const blobstore = new BlobStore()
-  const column = new ChunkColumn(Version.v1_2_0_bis, 0, 0)
+  const column = new ChunkColumn(0, 0)
 
   for (let x = 0; x < 16; x++) {
     for (let y = 5; y < 256; y += 3) {
@@ -98,7 +97,7 @@ async function testNetworkWithCache() {
   }
 
   const { blobs, payload } = await column.networkEncode(blobstore)
-  const next = new ChunkColumn(Version.v1_2_0_bis, 0, 0)
+  const next = new ChunkColumn(0, 0)
   const miss = await next.networkDecode(blobs, blobstore, payload)
   console.assert(miss.length == 0)
   if (miss.length != 0) throw Error()
@@ -108,7 +107,7 @@ async function testNetworkWithCache() {
 
 async function testNetworkWithBadCache() {
   const blobstore = new BlobStore()
-  const column = new ChunkColumn(Version.v1_2_0_bis, 0, 0)
+  const column = new ChunkColumn(0, 0)
 
   for (let x = 0; x < 16; x++) {
     for (let y = 5; y < 22; y += 2) {
@@ -145,7 +144,7 @@ async function testNetworkWithBadCache() {
   }
   // blobstore.clear()
 
-  const next = new ChunkColumn(Version.v1_2_0_bis, 0, 0)
+  const next = new ChunkColumn(0, 0)
   const miss = await next.networkDecode(blobs, blobstore, payload)
   console.log('Missing', miss)
   if (miss.length !== 1) throw Error('Expected 1 missing blob')

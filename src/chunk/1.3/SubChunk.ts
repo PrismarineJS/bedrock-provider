@@ -157,7 +157,7 @@ export default function (version, subChunkVersion) {
      * @param stream Stream to write chunk data to
      * @param overNetwork encode with varints
      */
-    private encodeV8 (stream: Stream, format: StorageType) {
+    encodeV8 (stream: Stream, format: StorageType) {
       stream.writeByte(8) // write the chunk version
       stream.writeByte(this.blocks.length)
       for (let l = 0; l < this.blocks.length; l++) {

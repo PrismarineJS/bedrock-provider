@@ -19,7 +19,7 @@ export class WorldProvider {
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
    *                version - The version to load the world as.
    */
-  constructor (db: LevelDB, options?: { dimension: number, version }) {
+  constructor (db: LevelDB, options?: { dimension: number, version? }) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
@@ -45,8 +45,9 @@ export class WorldProvider {
 
   async readSubChunks (x, z, version?) {
     const ver = version || await this.getChunkVersion(x, z)
-    if (ver >= Version.v17_0) {
-      const cc = getChunkWrapper(ver, x, z)
+    const ChunkColumn = getChunkWrapper(ver, 0)
+    if (ChunkColumn) {
+      const cc = new ChunkColumn(x, z)
       // TODO: Load height based on version
       for (let y = cc.minY; y < cc.maxY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
