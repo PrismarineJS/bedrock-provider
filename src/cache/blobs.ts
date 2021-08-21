@@ -27,6 +27,8 @@ const enum Backend {
   leveldb
 }
 
+export interface CCHash { type: BlobType, hash: Buffer }
+
 export class BlobStore extends Map {
   size: number
   backend: Backend

@@ -2,6 +2,11 @@ import { Vec3 } from 'vec3'
 import { Block } from 'prismarine-block'
 import nbt, { NBT } from 'prismarine-nbt'
 import subchunk from './SubChunk'
+import { getChecksum } from '../../cache/hash'
+import { StorageType } from '../Chunk'
+import { BlobEntry, BlobStore, BlobType, CCHash } from '../../cache/blobs'
+import { Stream } from '../../Stream'
+import v8 from 'v8'
 
 const MIN_Y = 0
 const MAX_Y = 15
@@ -10,7 +15,7 @@ class Vec4 extends Vec3 {
   l: number
 }
 
-export default function (version) {
+module.exports = function (version) {
   const SubChunk = subchunk(version, 8)
   type SubChunk = InstanceType<typeof SubChunk>
   return class ChunkColumn {
@@ -38,7 +43,7 @@ export default function (version) {
     }
   
     getBlock (vec4: Vec4): Block {
-      const Y = y >> 4
+      const Y = vec4.y >> 4
       const sec = this.sections[this.minY + Y]
       return sec.getBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z)
     }
@@ -70,6 +75,12 @@ export default function (version) {
   
     getSection (y) {
       return this.sections[this.minY + y]
+    }
+
+    newSection (y) {
+      const n = new SubChunk(y)
+      this.sections.push(n)
+      return n
     }
   
     addEntity (nbt) {
@@ -123,7 +134,7 @@ export default function (version) {
       const biomeBuf = this.biomes?.length ? Buffer.from(this.biomes) : Buffer.alloc(256)
       const sectionBufs = []
       for (const section of this.sections) {
-        sectionBufs.push(await section.encode(this.version, StorageType.Runtime))
+        sectionBufs.push(await section.encode(StorageType.Runtime))
       }
       return Buffer.concat([
         ...sectionBufs,
@@ -144,7 +155,7 @@ export default function (version) {
       for (const section of this.sections) {
         const key = `${this.x},${section.y},${this.z}`
         if (section.updated || !blobStore.read(section.hash)) {
-          const buffer = await section.encode(this.version, StorageType.NetworkPersistence)
+          const buffer = await section.encode(StorageType.NetworkPersistence)
           const blob = new BlobEntry({ x: this.x, y: section.y, z: this.z, type: BlobType.ChunkSection, buffer })
           blobStore.write(section.hash, blob)
           // console.log('WROTE BLOB', blob)
@@ -185,7 +196,7 @@ export default function (version) {
       // console.warn('Total Reading', sectionCount)
       for (let i = 0; i < sectionCount; i++) {
         // console.warn('Reading', i)
-        const section = new SubChunk(this.factory, this.version, i, false)
+        const section = new SubChunk(i)
         await section.decode(StorageType.Runtime, stream)
         this.sections.push(section)
       }
@@ -235,6 +246,8 @@ export default function (version) {
         // blobs and don't try to load this column until we have all the data
         return misses
       }
+
+      // Reset the sections & length, when we add a section, it will auto increment
       this.sections = []
       this.sectionsLen = 0
       for (const blob of blobs) {
@@ -243,7 +256,7 @@ export default function (version) {
         if (entry.type == BlobType.Biomes) {
           this.biomes = entry.buffer
         } else if (entry.type == BlobType.ChunkSection) {
-          const subchunk = new SubChunk(this.factory, this.version, this.sectionsLen)
+          const subchunk = new SubChunk(this.sectionsLen)
           await subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
           this.addSection(subchunk)
         } else {
@@ -260,10 +273,8 @@ export default function (version) {
         throw Error('String serialization not yet supported')
       } else {
         const copy = { ...this, sections: [] }
-        delete copy.factory
         for (const section of this.sections) {
           const sec = { ...section }
-          delete sec.factory
           copy.sections.push(v8.serialize(sec))
         }
         return v8.serialize(copy)

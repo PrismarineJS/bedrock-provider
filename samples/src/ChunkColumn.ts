@@ -314,4 +314,4 @@ export class ChunkColumn {
   }
 }
 
-interface CCHash { type: BlobType, hash: Buffer }
+

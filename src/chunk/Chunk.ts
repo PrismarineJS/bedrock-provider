@@ -1,18 +1,26 @@
-import mcData, { Version } from 'minecraft-data'
-export class BaseChunkColumn {
+export class IChunkColumn {
   x: number
   z: number
   chunkVersion: number
+  Section: BaseSubChunk
   sections: BaseSubChunk[]
   minY: number
   maxY: number
+  entities
+  addBlockEntity
+  biomes
+  heights
+  newSection: (y) => any
+  getSection: (y) => BaseSubChunk
 }
 
-export class BaseSubChunk {
+export abstract class BaseSubChunk {
   sectionVersion: number
   constructor(sectionVersion) {
     this.sectionVersion = sectionVersion
   }
+
+  abstract encode(storageFormat: StorageType, checksum?): Promise<Buffer>
 }
 
 // See the Blob docs for details

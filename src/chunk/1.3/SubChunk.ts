@@ -1,10 +1,10 @@
-/// <reference path="./types.d.ts" />
-import { Stream } from '../src/Stream'
+/// <reference path="../../types.d.ts" />
+import { Stream } from '../../Stream'
 import nbt from 'prismarine-nbt'
-import { PalettedBlockStateStorage } from '../src/PalettedBlockStateStorage'
+import { PalettedBlockStateStorage } from '../PalettedBlockStateStorage'
 import { Block } from 'prismarine-block'
-import { getChecksum } from './format'
-import { BaseSubChunk } from './Chunk'
+import { BaseSubChunk, StorageType } from '../Chunk'
+import { getChecksum } from '../../cache/hash'
 
 const LOG = (...args) => { }
 
@@ -197,11 +197,11 @@ export default function (version, subChunkVersion) {
       }
     }
   
-    setBlock (l: int, x: int, y: int, z: int, block: Block) {
+    setBlock (l = 0, x: int, y: int, z: int, block: Block) {
       this.setBlockStateId(l, x, y, z, block.stateId)
     }
 
-    getBlock (l: int, x: int, y: int, z: int): Block {
+    getBlock (l = 0, x: int, y: int, z: int): Block {
       const stateId = this.getBlockStateId(l, x, y, z)
       return Block.fromStateId(stateId)
     }
@@ -212,7 +212,7 @@ export default function (version, subChunkVersion) {
       return stateId
     }
   
-    setBlockStateId (l: int, x: int, y: int, z: int, stateId: int) {
+    setBlockStateId (l = 0, x: int, y: int, z: int, stateId: int) {
       this.updated = true
       if (!this.palette2[l]?.get(stateId)) {
         this.addToPalette(l, stateId)
@@ -222,6 +222,7 @@ export default function (version, subChunkVersion) {
 
     addToPalette (l: int, stateId: int) {
       while (this.palette2.length <= l) this.palette2.push(new Map())
+      while (this.blocks.length <= l) this.blocks.push(new Uint16Array(4096))
       const state = mcData.blockStates[stateId]
       this.palette2[l].set(stateId, { 
         globalIndex: stateId,

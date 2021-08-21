@@ -1,8 +1,10 @@
-import { getChunk } from './loader'
+import mcData from 'minecraft-data'
+import { IChunkColumn } from '../chunk/Chunk'
+import getChunk from '../chunk/loader'
 
 function versionFromChunkVersion(chunkVersion) {
   let last
-  for (const version of mcData.versions.bedrock) {
+  for (const version of <any>mcData.versions.bedrock) {
     if (version.chunkVersion < chunkVersion) last = version
     else if (version.chunkVersion > chunkVersion) return last
     else if (version.chunkVersion === chunkVersion) return version
@@ -14,11 +16,12 @@ function convert(from, to, buf) {
   return false
 }
 
-function getChunkWrapper(chunkVersion: number, wantedChunkVersion: number, sections) {
+export function getChunkWrapper(chunkVersion: number, wantedChunkVersion: number, sections): IChunkColumn {
   // Sometimes when loading chunks from disk the versions are not always consistent, so we run a converter
   // if it exists.
   const ChunkColumn = getChunk(versionFromChunkVersion(chunkVersion))
-  if (chunkVersion !== wantedChunkVersion)
-    return convert(chunkVersion, wantedChunkVersion, sections) ?? ChunkColumn.fromSections(buffers)
-  return ChunkColumn.fromSections(buffers)
+  return ChunkColumn
+  // if (chunkVersion !== wantedChunkVersion)
+  //   return convert(chunkVersion, wantedChunkVersion, sections) ?? ChunkColumn.fromSections(sections)
+  // return ChunkColumn.fromSections(sections)
 }

@@ -1,5 +1,4 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
-import xxhash from 'xxhash-wasm'
 
 export enum Version {
   v9_00 = 0,
@@ -291,14 +290,4 @@ export async function recurseMinecraftKeys (db) {
   }
   await iter.end()
   return out
-}
-
-// Init xxHash
-let hasher
-
-export async function getChecksum(buffer: Buffer | Uint8Array) {
-  if (!hasher) {
-    hasher = await xxhash()
-  }
-  return Buffer.from(hasher.h64Raw(buffer))
 }
