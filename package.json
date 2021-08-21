@@ -29,7 +29,6 @@
     "bedrock-provider": "file:./",
     "leveldb-zlib": "^0.0.25",
     "mocha": "^9.1.0",
-    "ts-mocha": "^8.0.0",
     "ts-node": "^9.1.1",
     "ts-standard": "^10.0.0",
     "typescript": "^4.2.4"
