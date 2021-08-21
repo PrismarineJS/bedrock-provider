@@ -1,6 +1,6 @@
 import { LevelDB } from 'leveldb-zlib'
 import { chunk, WorldProvider, BlobStore } from 'bedrock-provider'
-import { netBufferTest } from './chunkreadtest'
+// import { netBufferTest } from './chunkreadtest'
 import { join } from 'path'
 import assert from 'assert'
 
@@ -22,7 +22,7 @@ async function testWorldLoading() {
   for (var _key of keys) {
     let key = _key[0]
     // console.log(key.type)
-    if (key.type == 'version') {
+    if (key.type === 'version') {
       // console.log('version', key.x, key.z, key.key)
 
       const cc = await wp.load(key.x, key.z, true)
@@ -56,7 +56,7 @@ async function testNetworkNoCache() {
   let keys = await wp.getKeys()
   for (var _key of keys) {
     let key = _key[0]
-    if (key.type == 'version') {
+    if (key.type === 'version') {
       const cc = await wp.load(key.x, key.z, true)
 
       const buf = await cc.networkEncodeNoCache()
@@ -93,7 +93,7 @@ async function testNetworkWithCache() {
     for (let y = 5; y < 256; y += 3) {
       for (let z = 3; z < 12; z++) {
         const blk = column.getBlock({ x, y, z })
-        console.assert(blk.stateId == 2)
+        assert(blk.stateId === 2)
       }
     }
   }
@@ -101,10 +101,10 @@ async function testNetworkWithCache() {
   const { blobs, payload } = await column.networkEncode(blobstore)
   const next = new ChunkColumn(0, 0)
   const miss = await next.networkDecode(blobs, blobstore, payload)
-  console.assert(miss.length == 0)
+  assert(miss.length === 0)
   if (miss.length != 0) throw Error()
-  console.log('Old', column)
-  console.log('Next', next)
+  // console.log('Old', column)
+  // console.log('Next', next)
 }
 
 async function testNetworkWithBadCache() {
@@ -124,7 +124,7 @@ async function testNetworkWithBadCache() {
     for (let y = 5; y < 22; y += 2) {
       for (let z = 3; z < 12; z++) {
         const blk = column.getBlock({ x, y, z })
-        assert(blk.stateId == 2 || blk.stateId == 1)
+        assert(blk.stateId === 2 || blk.stateId === 1)
       }
     }
   }
@@ -134,7 +134,7 @@ async function testNetworkWithBadCache() {
 
   for (var i = 0; i < blobs.length; i++) {
     for (var j = i + 1; j < blobs.length; j++) {
-      if (blobs[i].hash.toString('hex') == blobs[j].hash.toString('hex')) {
+      if (blobs[i].hash.toString('hex') === blobs[j].hash.toString('hex')) {
         throw Error('Duplicate hashes! Did writing fail?')
       }
     }

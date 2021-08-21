@@ -1,7 +1,6 @@
-import mcData from 'minecraft-data'
 import getChunk from '../chunk/loader'
 
-function versionFromChunkVersion(chunkVersion) {
+function versionFromChunkVersion (chunkVersion) {
   return 'bedrock_1.17.10'
   // TODO: add data in mcData :
   // let last
@@ -12,14 +11,14 @@ function versionFromChunkVersion(chunkVersion) {
   // }
 }
 
-function convert(from, to, buf) {
+function convert (from, to, buf) {
   // Sometimes when loading chunks from disk the versions are not always consistent, so we run a converter
   // if it exists.
   // TODO
   return false
 }
 
-export function getChunkWrapper(chunkVersion: number, wantedChunkVersion: number) {
+export function getChunkWrapper (chunkVersion: number, wantedChunkVersion: number) {
   const ChunkColumn = getChunk(versionFromChunkVersion(chunkVersion))
   return ChunkColumn
 }

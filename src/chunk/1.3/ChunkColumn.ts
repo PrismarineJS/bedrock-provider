@@ -18,32 +18,32 @@ export = function (version: string) {
     version: number
     sections: SubChunk[] = []
     sectionsLen = 0
-  
+
     entities: NBT[] = []
     tiles: { string?: NBT } = {}
-  
+
     biomes?: Uint8Array
     heights?: Uint16Array
-  
+
     // For a new version we can change this
     minY = MIN_Y
     maxY = MAX_Y
-  
+
     biomesUpdated = true
     biomesHash: Buffer | null
-    
+
     constructor (x: number, z: number) {
       this.x = x
       this.z = z
     }
-  
+
     getBlock (vec4: Vec4): Block {
       const Y = vec4.y >> 4
       const sec = this.sections[this.minY + Y]
       return sec.getBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z)
     }
-  
-    setBlock(vec4: Vec4, block: Block) {
+
+    setBlock (vec4: Vec4, block: Block) {
       const cy = vec4.y >> 4
       if (cy < this.minY || cy > this.maxY) return
       let sec = this.sections[this.minY + cy]
@@ -53,70 +53,70 @@ export = function (version: string) {
       }
       return sec.setBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z, block)
     }
-  
+
     getBlockStateId (pos) {
       return this.getBlock(pos)?.stateId
     }
-  
+
     setBlockStateId (pos, runtimeId: number) {
       const cy = pos.y >> 4
       return this.sections[cy].setBlockStateId(pos.l, pos.x, pos.y, pos.z, runtimeId)
     }
-  
+
     addSection (section) {
       this.sections.push(section)
       this.sectionsLen++
     }
-  
-    getSection (y) {
+
+    getSection (y: int) {
       return this.sections[this.minY + y]
     }
 
-    newSection (y) {
+    newSection (y: int) {
       const n = new SubChunk(y)
       this.sections.push(n)
       this.sectionsLen++
       return n
     }
-  
+
     addEntity (nbt) {
       this.entities.push(nbt)
     }
-  
+
     addBlockEntity (nbt) {
       // console.log('[wp] adding tile', nbt)
       const x = nbt.value.x.value
       const z = nbt.value.z.value
       this.tiles[x + ',' + z] = nbt
     }
-  
+
     getSections (): SubChunk[] {
       return this.sections
     }
-  
+
     getEntities () {
       return this.entities
     }
-  
+
     getBlockEntities () {
       return this.tiles
     }
-  
+
     getBiome ({ x, y, z }) {
       // todo
       return 0
     }
-  
+
     setBiome ({ x, y, z }, biome) {
       this.biomesUpdated = true
     }
-  
+
     async updateHash (fromBuf: Buffer | Uint8Array): Promise<Buffer> {
       this.biomesUpdated = false
       this.biomesHash = await getChecksum(fromBuf)
       return this.biomesHash
     }
-  
+
     /**
      * Encodes this chunk column for the network with no caching
      * @param buffer Full chunk buffer
@@ -139,7 +139,7 @@ export = function (version: string) {
         ...tileBufs
       ])
     }
-  
+
     /**
      * Encodes this chunk column for use over network with caching enabled
      *
@@ -149,12 +149,11 @@ export = function (version: string) {
     async networkEncodeBlobs (blobStore: BlobStore): Promise<CCHash[]> {
       const blobHashes = [] as CCHash[]
       for (const section of this.sections) {
-        const key = `${this.x},${section.y},${this.z}`
+        // const key = `${this.x},${section.y},${this.z}`
         if (section.updated || !blobStore.read(section.hash)) {
           const buffer = await section.encode(StorageType.NetworkPersistence, true)
           const blob = new BlobEntry({ x: this.x, y: section.y, z: this.z, type: BlobType.ChunkSection, buffer })
           blobStore.write(section.hash, blob)
-          // console.log('WROTE BLOB', blob)
         }
         blobHashes.push({ hash: section.hash, type: BlobType.ChunkSection })
       }
@@ -167,7 +166,7 @@ export = function (version: string) {
       blobHashes.push({ hash: this.biomesHash, type: BlobType.Biomes })
       return blobHashes
     }
-  
+
     async networkEncode (blobStore: BlobStore) {
       const blobs = await this.networkEncodeBlobs(blobStore)
       const tileBufs = []
@@ -176,7 +175,7 @@ export = function (version: string) {
         // console.log(JSON.stringify(tile))
         tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
       }
-  
+
       return {
         blobs, // cache blobs
         payload: Buffer.concat([ // non-cached stuff
@@ -185,13 +184,11 @@ export = function (version: string) {
         ])
       }
     }
-  
+
     async networkDecodeNoCache (buffer: Buffer, sectionCount: number) {
       const stream = new Stream(buffer)
       this.sections = []
-      // console.warn('Total Reading', sectionCount)
       for (let i = 0; i < sectionCount; i++) {
-        // console.warn('Reading', i)
         const section = new SubChunk(i)
         await section.decode(StorageType.Runtime, stream)
         this.sections.push(section)
@@ -199,17 +196,17 @@ export = function (version: string) {
       this.biomes = new Uint8Array(stream.read(256))
       const extra = stream.read(stream.readByte())
       if (extra.length) console.debug('[wp] Read ', extra, 'bytes')
-  
+
       const buf = stream.getBuffer()
       buf.startOffset = stream.getOffset()
-      while (stream.peek() == 0x0A) {
+      while (stream.peek() === 0x0A) {
         const { parsed, metadata } = await nbt.parse(buf, 'littleVarint')
         stream.offset += metadata.size
         buf.startOffset += metadata.size
         this.addBlockEntity(parsed)
       }
     }
-  
+
     /**
      * Decodes cached chunks sent over the network
      * @param blobs The blob hashes sent in the Chunk packe
@@ -221,18 +218,17 @@ export = function (version: string) {
       const stream = new Stream(payload)
       const borderblocks = stream.read(stream.readByte())
       if (borderblocks.length) console.debug('[wp] Skip ', borderblocks, 'bytes')
-  
+
       payload.startOffset = stream.getOffset()
-      while (stream.peek() == 0x0A) {
+      while (stream.peek() === 0x0A) {
         const { parsed, metadata } = await nbt.parse(payload, 'littleVarint')
         stream.offset += metadata.size
         payload.startOffset += metadata.size
         this.addBlockEntity(parsed)
       }
-  
+
       const misses = [] as CCHash[]
       for (const blob of blobs) {
-        // console.log('Checking blob', blob, blobStore.get(blob.hash), blobStore)
         if (!blobStore.has(blob.hash)) {
           misses.push(blob)
         }
@@ -248,10 +244,9 @@ export = function (version: string) {
       this.sectionsLen = 0
       for (const blob of blobs) {
         const entry = blobStore.read(blob.hash)
-        // console.log('BUF',entry)
-        if (entry.type == BlobType.Biomes) {
+        if (entry.type === BlobType.Biomes) {
           this.biomes = entry.buffer
-        } else if (entry.type == BlobType.ChunkSection) {
+        } else if (entry.type === BlobType.ChunkSection) {
           const subchunk = new SubChunk(this.sectionsLen)
           await subchunk.decode(StorageType.NetworkPersistence, new Stream(entry.buffer))
           this.addSection(subchunk)
@@ -259,10 +254,10 @@ export = function (version: string) {
           throw Error('Unknown blob type: ' + entry.type)
         }
       }
-  
+
       return misses
     }
-  
+
     /* Serialization */
     serialize () {
       if (typeof v8 === 'undefined') {
@@ -276,9 +271,9 @@ export = function (version: string) {
         return v8.serialize(copy)
       }
     }
-  
+
     toJson () { return this.serialize() }
-  
+
     static deserialize (obj) {
       if (typeof obj === 'string') {
         // Oject.assign(this, JSON.parse(obj))
@@ -297,7 +292,7 @@ export = function (version: string) {
         return chunk
       }
     }
-  
+
     static fromJson (obj) {
       return ChunkColumn.deserialize(obj)
     }

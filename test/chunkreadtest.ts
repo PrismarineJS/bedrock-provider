@@ -25,7 +25,7 @@ export async function netBufferTest() {
   const column = new ChunkColumn(x, z)
   await column.networkDecodeNoCache(payload, subchunkCount)
   const encoded = await column.networkEncodeNoCache()
-  console.log('Decoded', payload, encoded, column.biomesHash)
+  // console.log('Decoded', payload, encoded, column.biomesHash)
 
   if (payload.toString('hex') != encoded.toString('hex')) {
     console.log(payload.toString('hex'))
@@ -51,7 +51,7 @@ export async function blobTest() {
     for (let y = 5; y < 16; y++) {
       for (let z = 3; z < 12; z++) {
         const blk = column.getBlock({ x, y, z })
-        console.assert(blk.stateId == 2)
+        console.assert(blk.stateId === 2)
       }
     }
   }
@@ -59,8 +59,8 @@ export async function blobTest() {
   const { blobs, payload } = await column.networkEncode(blobstore)
   const next = new ChunkColumn(0, 0)
   const miss = await next.networkDecode(blobs, blobstore, payload)
-  console.assert(miss.length == 0)
-  console.log('Old', column)
-  console.log('Next', next)
+  console.assert(miss.length === 0)
+  // console.log('Old', column)
+  // console.log('Next', next)
 }
 

@@ -110,7 +110,6 @@ export class KeyBuilder {
       stream.writeLInt(dimId)
     }
     stream.writeByte(Tag.VersionNew)
-    // console.log('Built key', stream.getBuffer())
     return stream.getBuffer()
   }
 
@@ -168,7 +167,6 @@ export async function recurseMinecraftKeys (db) {
     let read: KeyData[] = []
 
     let ksize = buffer.length
-    // console.log(ksize)
     if (ksize >= 8) {
       let cx = buffer.readInt32LE(0)
       let cz = buffer.readInt32LE(4)
@@ -177,74 +175,74 @@ export async function recurseMinecraftKeys (db) {
 
       let dim = 0
 
-      let overworld = ksize == 9
-      let otherDim = ksize == 13
+      let overworld = ksize === 9
+      let otherDim = ksize === 13
 
       if (otherDim) {
         dim = buffer.readInt32LE(8)
       }
 
-      // console.log('good', cx, cz, tagOver, tagWithDim, dim, overworld, otherDim)
+      // console.log('key', cx, cz, tagOver, tagWithDim, dim, overworld, otherDim)
 
-      if (overworld && tagOver == Tag.VersionNew) {
+      if (overworld && tagOver === Tag.VersionNew) {
         // Version 1.16.100+
         read.push({ x: cx, z: cz, dim: 0, tagId: tagOver, type: 'version', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.VersionNew) {
+      } else if (otherDim && tagWithDim === Tag.VersionNew) {
         // Version
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'version', key: buffer })
-      } else if (ksize == 10 && tagOver == Tag.SubChunkPrefix) {
+      } else if (ksize === 10 && tagOver === Tag.SubChunkPrefix) {
         // Overworld chunk with subchunk
         let cy = buffer.readInt8(1 + 8)
         read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagOver, type: 'chunk', key: buffer })
-      } else if (ksize == 14 && tagWithDim == Tag.SubChunkPrefix) {
+      } else if (ksize === 14 && tagWithDim === Tag.SubChunkPrefix) {
         // let dim = buffer.readInt32LE(offset += 4)
         let cy = buffer.readInt8(1 + 8 + 4)
         read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagWithDim, type: 'chunk', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.Data2D) {
+      } else if (otherDim && tagWithDim === Tag.Data2D) {
         // biomes and elevation for other dimensions
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer })
-      } else if (overworld && tagOver == Tag.Data2D) {
+      } else if (overworld && tagOver === Tag.Data2D) {
         // biomes + elevation for overworld
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.Entity) {
+      } else if (otherDim && tagWithDim === Tag.Entity) {
         // enities for dim
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer })
-      } else if (overworld && tagOver == Tag.Entity) {
+      } else if (overworld && tagOver === Tag.Entity) {
         // entities for overworld
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.BlockEntity) {
+      } else if (otherDim && tagWithDim === Tag.BlockEntity) {
         // block entities for dim
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer })
-      } else if (overworld && tagOver == Tag.BlockEntity) {
+      } else if (overworld && tagOver === Tag.BlockEntity) {
         // block entities for overworld
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer })
-      } else if (overworld && tagOver == Tag.FinalizedState) {
+      } else if (overworld && tagOver === Tag.FinalizedState) {
         // finalized state overworld chunks
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.FinalizedState) {
+      } else if (otherDim && tagWithDim === Tag.FinalizedState) {
         // finalized state for other dimensions
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer })
-      } else if (overworld && tagOver == Tag.VersionOld) {
+      } else if (overworld && tagOver === Tag.VersionOld) {
         // version for pre 1.16.100
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.VersionOld) {
+      } else if (otherDim && tagWithDim === Tag.VersionOld) {
         // version for pre 1.16.100
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.HardCodedSpawnAreas) {
+      } else if (otherDim && tagWithDim === Tag.HardCodedSpawnAreas) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer })
-      } else if (overworld && tagOver == Tag.HardCodedSpawnAreas) {
+      } else if (overworld && tagOver === Tag.HardCodedSpawnAreas) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.BiomeState) {
+      } else if (otherDim && tagWithDim === Tag.BiomeState) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer })
-      } else if (overworld && tagOver == Tag.BiomeState) {
+      } else if (overworld && tagOver === Tag.BiomeState) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer })
-      } else if (overworld && tagOver == Tag.PendingTicks) {
+      } else if (overworld && tagOver === Tag.PendingTicks) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.PendingTicks) {
+      } else if (otherDim && tagWithDim === Tag.PendingTicks) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-      } else if (overworld && tagOver == Tag.Checksums) {
+      } else if (overworld && tagOver === Tag.Checksums) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
-      } else if (otherDim && tagWithDim == Tag.Checksums) {
+      } else if (otherDim && tagWithDim === Tag.Checksums) {
         read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
       }
 
@@ -282,9 +280,7 @@ export async function recurseMinecraftKeys (db) {
 
   const iter = db.getIterator({ values: true })
   let entry = null
-  // console.log('Iterator entries:')
   while (entry = await iter.next()) { // eslint-disable-line
-    // console.log('[mc] readKey: ', entry, entry[0].length)
     const read = readKey(entry[0])
     out.push(read)
   }

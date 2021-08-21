@@ -6,7 +6,7 @@ import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './databaseKe
 import MinecraftData from 'minecraft-data'
 import { IChunkColumn, StorageType } from '../chunk/Chunk'
 
-const latestVersion = <any>MinecraftData.versions['bedrock'].pop()
+const latestVersion = <any>MinecraftData.versions.bedrock.pop()
 
 export class WorldProvider {
   db: LevelDB
@@ -19,7 +19,7 @@ export class WorldProvider {
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
    *                version - The version to load the world as.
    */
-  constructor (db: LevelDB, options?: { dimension: number, version? }) {
+  constructor (db: LevelDB, options?: { dimension: number, version?}) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
@@ -37,7 +37,6 @@ export class WorldProvider {
 
   async getChunkVersion (x, z): Promise<byte> {
     const version = await this.readNewVersion(x, z) || await this.readOldVersion(x, z)
-    // console.log('v', version)
     return version ? version[0] : null
   }
 
@@ -69,7 +68,7 @@ export class WorldProvider {
 
       if (buffer) {
         buffer.startOffset = 0
-        while (buffer[buffer.startOffset] == 0x0A) {
+        while (buffer[buffer.startOffset] === 0x0A) {
           const { parsed, metadata } = await NBT.parse(buffer, 'little')
 
           buffer.startOffset += metadata.size
@@ -89,7 +88,7 @@ export class WorldProvider {
 
       if (buffer) {
         buffer.startOffset = 0
-        while (buffer[buffer.startOffset] == 0x0A) {
+        while (buffer[buffer.startOffset] === 0x0A) {
           const { parsed, metadata } = await NBT.parse(buffer, 'little')
 
           buffer.startOffset += metadata.size
