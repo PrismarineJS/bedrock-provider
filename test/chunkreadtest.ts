@@ -1,12 +1,13 @@
 import fs from 'fs'
 import { chunk, WorldProvider, BlobStore } from 'bedrock-provider'
 import { Stream } from '../src/Stream'
+import { join } from 'path'
 
 const ChunkColumn = chunk('bedrock_1.17.10')
 const Block = require('prismarine-block')('bedrock_1.17.10')
 
 export async function netBufferTest() {
-  const buf = Buffer.from(fs.readFileSync('./chunk-0.txt', 'utf-8'), 'hex')
+  const buf = Buffer.from(fs.readFileSync(join(__dirname, './chunk-0.txt'), 'utf-8'), 'hex')
 
   console.log(buf)
   const stream = new Stream(buf)

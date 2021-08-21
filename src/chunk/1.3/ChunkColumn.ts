@@ -48,7 +48,7 @@ export = function (version: string) {
       if (cy < this.minY || cy > this.maxY) return
       let sec = this.sections[this.minY + cy]
       while (!sec) {
-        this.addSection(new SubChunk(this.sections.length))
+        this.addSection(SubChunk.create(this.sections.length))
         sec = this.sections[this.minY + cy]
       }
       return sec.setBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z, block)
@@ -75,6 +75,7 @@ export = function (version: string) {
     newSection (y) {
       const n = new SubChunk(y)
       this.sections.push(n)
+      this.sectionsLen++
       return n
     }
   
@@ -150,7 +151,7 @@ export = function (version: string) {
       for (const section of this.sections) {
         const key = `${this.x},${section.y},${this.z}`
         if (section.updated || !blobStore.read(section.hash)) {
-          const buffer = await section.encode(StorageType.NetworkPersistence)
+          const buffer = await section.encode(StorageType.NetworkPersistence, true)
           const blob = new BlobEntry({ x: this.x, y: section.y, z: this.z, type: BlobType.ChunkSection, buffer })
           blobStore.write(section.hash, blob)
           // console.log('WROTE BLOB', blob)

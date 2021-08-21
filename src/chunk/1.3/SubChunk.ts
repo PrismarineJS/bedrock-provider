@@ -38,12 +38,17 @@ export default function (version, subChunkVersion) {
       this.blocks = []
     }
 
+    /**
+     * MUST call this when creating a new SubChunk instead of importing. This adds air to the palette.
+     * @param y y
+     * @returns SubChunk
+     */
     static create (y = 0) {
       const subChunk = new this(y)
       // Fill first layer with zero
       subChunk.blocks.push(new Uint16Array(4096))
       // Set zero to be air, Add to the palette
-      subChunk.addToPalette(0, mcData.blocks.air.defaultState)
+      subChunk.addToPalette(0, mcData.blocksByName.air.defaultState);
       return subChunk
     }
   
@@ -130,7 +135,7 @@ export default function (version, subChunkVersion) {
         buf.startOffset += metadata.size // Buffer
         // see A) at bottom for example schema
         const { name, states, version } = nbt.simplify(parsed)
-        const block: Block = Block.fromProperties(name, states, version)
+        const block: Block = Block.fromProperties(name.replace('minecraft:', ''), states ?? {}, version)
         this.palette2[storage].set(block.stateId, { globalIndex: block.stateId, name, states, version })
         i++
       }
@@ -163,9 +168,9 @@ export default function (version, subChunkVersion) {
       for (let l = 0; l < this.blocks.length; l++) {
         const palette = this.palette2[l]
         let palette_type = 0 // n >> 1 = bits per block, n & 1 = 0 for local palette
-  
+        // TODO: handle air chunks
         const palsize: int = palette.size
-        let bitsPerBlock: byte = Math.ceil(Math.log2(palsize))
+        let bitsPerBlock: byte = Math.ceil(Math.log2(palsize)) | 1
         const runtimeSerialization = format == StorageType.Runtime ? 1 : 0
   
         if (bitsPerBlock > 8) {
@@ -278,11 +283,11 @@ export default function (version, subChunkVersion) {
     exportLocalPalette (l: int): nbt.NBT[] {
       const ret = []
       for (const [k, e] of this.palette2[l]) {
-        nbt.comp({
+        ret.push(nbt.comp({
           name: nbt.string('minecraft:' + e.name),
-          states: e.states,
+          states: nbt.comp(e.states),
           version: nbt.int(e.version)
-        })
+        }))
       }
       return ret
     }

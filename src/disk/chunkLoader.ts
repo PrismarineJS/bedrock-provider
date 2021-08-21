@@ -2,12 +2,14 @@ import mcData from 'minecraft-data'
 import getChunk from '../chunk/loader'
 
 function versionFromChunkVersion(chunkVersion) {
-  let last
-  for (const version of <any>mcData.versions.bedrock) {
-    if (version.chunkVersion < chunkVersion) last = version
-    else if (version.chunkVersion > chunkVersion) return last
-    else if (version.chunkVersion === chunkVersion) return version
-  }
+  return 'bedrock_1.17.10'
+  // TODO: add data in mcData :
+  // let last
+  // for (const version of <any>mcData.versions.bedrock) {
+  //   if (version.chunkVersion < chunkVersion) last = version
+  //   else if (version.chunkVersion > chunkVersion) return last
+  //   else if (version.chunkVersion === chunkVersion) return version
+  // }
 }
 
 function convert(from, to, buf) {
