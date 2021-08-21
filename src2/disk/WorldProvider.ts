@@ -1,8 +1,8 @@
 import type { LevelDB } from 'leveldb-zlib'
 import NBT from 'prismarine-nbt'
-import { Stream } from './Stream'
+import { Stream } from '../Stream'
 import mcData from 'minecraft-data'
-import { getChunk } from './Chunk'
+import { getChunk } from '../chunk/Chunk'
 import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './databaseKeys'
 
 const latestVersion = minecraft-data.versions['bedrock'].pop()
