@@ -283,7 +283,7 @@ export default function (version, subChunkVersion) {
       const ret = []
       for (const [k, e] of this.palette2[l]) {
         ret.push(nbt.comp({
-          name: nbt.string('minecraft:' + e.name),
+          name: nbt.string(e.name.includes(':') ? e.name : 'minecraft:' + e.name),
           states: nbt.comp(e.states),
           version: nbt.int(e.version)
         }))

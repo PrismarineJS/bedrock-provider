@@ -27,7 +27,6 @@ async function test () {
 
   const db = new LevelDB('./__sample', { createIfMissing: true }) // Create a DB class
   await db.open() // Open the database
-  console.log('WP', WorldProvider)
   const world = new WorldProvider(db, { dimension: 0 })
   world.save(cc)
   await db.close() // Close it
