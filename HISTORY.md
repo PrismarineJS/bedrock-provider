@@ -1,3 +1,6 @@
+## 2.0
+* (Breaking) New API, see README.md
+
 ## 1.0.1
 
 * Add 1.16.220 data
