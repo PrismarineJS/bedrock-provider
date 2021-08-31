@@ -1,8 +1,6 @@
-import { WorldProvider } from './WorldProvider'
-import { ChunkColumn } from './ChunkColumn'
-import { Stream } from './Stream'
-import { Version } from './format'
+import chunkLoader from './chunk/loader'
 
-export = {
-  WorldProvider, ChunkColumn, Stream, Version
-}
+export const chunk = chunkLoader
+export { WorldProvider } from './disk/WorldProvider'
+export { Version } from './disk/databaseKeys'
+export { BlobStore } from './cache/blobs'

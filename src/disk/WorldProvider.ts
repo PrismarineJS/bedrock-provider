@@ -1,27 +1,31 @@
-import { LevelDB } from 'leveldb-zlib'
-import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './format'
-import { ChunkColumn } from './ChunkColumn'
-import { StorageType, SubChunk } from './SubChunk'
+import type { LevelDB } from 'leveldb-zlib'
 import NBT from 'prismarine-nbt'
-import { Stream } from './Stream'
-import { blockFactory, BlockFactory } from './BlockFactory'
+import { Stream } from '../Stream'
+import { getChunkWrapper } from './chunkLoader'
+import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './databaseKeys'
+import MinecraftData from 'minecraft-data'
+import { IChunkColumn, StorageType } from '../chunk/Chunk'
+
+const latestVersion = <any>MinecraftData.versions.bedrock.pop()
 
 export class WorldProvider {
   db: LevelDB
   dimension: number
-  factory: BlockFactory = blockFactory
+  version: string
 
   /**
    * Creates a new Bedrock world provider
    * @param db a LevelDB instance for this save file
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
+   *                version - The version to load the world as.
    */
-  constructor (db: LevelDB, options?: { dimension: number }) {
+  constructor (db: LevelDB, options?: { dimension: number, version?}) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
     }
     this.dimension = options.dimension || 0
+    this.version = options.version || latestVersion.minecraftVersion
   }
 
   private async get (key): Promise<Buffer | null> {
@@ -33,7 +37,6 @@ export class WorldProvider {
 
   async getChunkVersion (x, z): Promise<byte> {
     const version = await this.readNewVersion(x, z) || await this.readOldVersion(x, z)
-    // console.log('v', version)
     return version ? version[0] : null
   }
 
@@ -41,15 +44,15 @@ export class WorldProvider {
 
   async readSubChunks (x, z, version?) {
     const ver = version || await this.getChunkVersion(x, z)
-    if (ver >= Version.v17_0) {
-      const cc = new ChunkColumn(ver, x, z)
+    const ChunkColumn = getChunkWrapper(ver, 0)
+    if (ChunkColumn) {
+      const cc = new ChunkColumn(x, z)
       // TODO: Load height based on version
       for (let y = cc.minY; y < cc.maxY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         if (!chunk) break
-        const subchunk = new SubChunk(this.factory, version, y, false)
+        const subchunk = cc.newSection(y)
         await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
-        cc.addSection(subchunk)
       }
       return cc
     }
@@ -65,7 +68,7 @@ export class WorldProvider {
 
       if (buffer) {
         buffer.startOffset = 0
-        while (buffer[buffer.startOffset] == 0x0A) {
+        while (buffer[buffer.startOffset] === 0x0A) {
           const { parsed, metadata } = await NBT.parse(buffer, 'little')
 
           buffer.startOffset += metadata.size
@@ -85,7 +88,7 @@ export class WorldProvider {
 
       if (buffer) {
         buffer.startOffset = 0
-        while (buffer[buffer.startOffset] == 0x0A) {
+        while (buffer[buffer.startOffset] === 0x0A) {
           const { parsed, metadata } = await NBT.parse(buffer, 'little')
 
           buffer.startOffset += metadata.size
@@ -120,17 +123,16 @@ export class WorldProvider {
     return null
   }
 
-  async writeSubChunks (column: ChunkColumn): Promise<any> {
-    const formatVer = column.version
+  async writeSubChunks (column: IChunkColumn): Promise<any> {
     const promises = []
-    if (formatVer >= Version.v17_0) {
+    if (column.chunkVersion >= Version.v17_0) {
       for (let y = column.minY; y < column.maxY; y++) {
         const section = column.getSection(y)
         if (!section) {
           break // no more sections
         }
         const key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
-        const buf = await section.encode(formatVer, StorageType.LocalPersistence)
+        const buf = await section.encode(StorageType.LocalPersistence)
         promises.push(this.db.put(key, buf))
       }
     }
@@ -138,7 +140,7 @@ export class WorldProvider {
     return await Promise.all(promises)
   }
 
-  writeEntities (column: ChunkColumn) {
+  writeEntities (column: IChunkColumn) {
 
   }
 
@@ -166,7 +168,7 @@ export class WorldProvider {
     }
   }
 
-  async save (column: ChunkColumn) {
+  async save (column: IChunkColumn) {
     return await this.writeSubChunks(column)
   }
 

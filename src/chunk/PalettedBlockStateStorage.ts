@@ -1,6 +1,6 @@
 // https://gist.github.com/extremeheat/c1be82ab4a1c5eb5945de5d98b520eb3
 
-import { Stream } from './Stream'
+import { Stream } from '../Stream'
 
 const wordByteSize: int = 4
 const wordBitSize: int = wordByteSize * 8
