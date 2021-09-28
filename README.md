@@ -22,7 +22,7 @@ Writing example:
 const fs = require('fs')
 const { LevelDB } = require('leveldb-zlib')
 const { WorldProvider } = require('bedrock-provider')
-const ChunkColumn = = require('bedrock-provider').chunk('bedrock_1.17.10')
+const ChunkColumn = require('bedrock-provider').chunk('bedrock_1.17.10')
 const Block = require('prismarine-block')('bedrock_1.17.10')
 
 async function main() {
