@@ -14,7 +14,7 @@ export enum Version {
 }
 
 export enum Tag {
-  VersionNew = 44,
+  VersionNew = 44, // ','
   Data2D = 45, // height map + biomes
   Data2DLegacy = 46,
   SubChunkPrefix = 47,
@@ -27,7 +27,7 @@ export enum Tag {
   FinalizedState = 54,
   BorderBlocks = 56, // Education Edition Feature
   HardCodedSpawnAreas = 57,
-  Checksums = 59,
+  Checksums = 59, // ';'
   VersionOld = 118
 }
 
@@ -164,7 +164,7 @@ export async function recurseMinecraftKeys (db) {
   /* eslint-disable */
   function readKey(buffer: Buffer): KeyData[] {
     let offset = 0
-    let read: KeyData[] = []
+    let read
 
     let ksize = buffer.length
     if (ksize >= 8) {
@@ -186,104 +186,113 @@ export async function recurseMinecraftKeys (db) {
 
       if (overworld && tagOver === Tag.VersionNew) {
         // Version 1.16.100+
-        read.push({ x: cx, z: cz, dim: 0, tagId: tagOver, type: 'version', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.VersionNew) {
+        read = { x: cx, z: cz, dim: 0, tagId: tagOver, type: 'version', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.VersionNew) {
         // Version
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'version', key: buffer })
-      } else if (ksize === 10 && tagOver === Tag.SubChunkPrefix) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'version', key: buffer }
+      } else if (ksize == 10 && tagOver == Tag.SubChunkPrefix) {
         // Overworld chunk with subchunk
         let cy = buffer.readInt8(1 + 8)
-        read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagOver, type: 'chunk', key: buffer })
-      } else if (ksize === 14 && tagWithDim === Tag.SubChunkPrefix) {
+        read = { x: cx, z: cz, y: cy, dim: dim, tagId: tagOver, type: 'chunk', key: buffer }
+      } else if (ksize == 14 && tagWithDim == Tag.SubChunkPrefix) {
         // let dim = buffer.readInt32LE(offset += 4)
         let cy = buffer.readInt8(1 + 8 + 4)
-        read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagWithDim, type: 'chunk', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.Data2D) {
+        read = { x: cx, z: cz, y: cy, dim: dim, tagId: tagWithDim, type: 'chunk', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.Data2D) {
         // biomes and elevation for other dimensions
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer })
-      } else if (overworld && tagOver === Tag.Data2D) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer }      } else if (overworld && tagOver == Tag.Data2D) {
         // biomes + elevation for overworld
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.Entity) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.Entity) {
         // enities for dim
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer })
-      } else if (overworld && tagOver === Tag.Entity) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer })
+      } else if (overworld && tagOver == Tag.Entity) {
         // entities for overworld
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.BlockEntity) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.BlockEntity) {
         // block entities for dim
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer })
-      } else if (overworld && tagOver === Tag.BlockEntity) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer })
+      } else if (overworld && tagOver == Tag.BlockEntity) {
         // block entities for overworld
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer })
-      } else if (overworld && tagOver === Tag.FinalizedState) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer })
+      } else if (overworld && tagOver == Tag.FinalizedState) {
         // finalized state overworld chunks
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.FinalizedState) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.FinalizedState) {
         // finalized state for other dimensions
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer })
-      } else if (overworld && tagOver === Tag.VersionOld) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer })
+      } else if (overworld && tagOver == Tag.VersionOld) {
         // version for pre 1.16.100
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.VersionOld) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.VersionOld) {
         // version for pre 1.16.100
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.HardCodedSpawnAreas) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer })
-      } else if (overworld && tagOver === Tag.HardCodedSpawnAreas) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.BiomeState) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer })
-      } else if (overworld && tagOver === Tag.BiomeState) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer })
-      } else if (overworld && tagOver === Tag.PendingTicks) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.PendingTicks) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-      } else if (overworld && tagOver === Tag.Checksums) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.Checksums) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.HardCodedSpawnAreas) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer })
+      } else if (overworld && tagOver == Tag.HardCodedSpawnAreas) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.BiomeState) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer })
+      } else if (overworld && tagOver == Tag.BiomeState) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer })
+      } else if (overworld && tagOver == Tag.PendingTicks) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.PendingTicks) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
+      } else if (overworld && tagOver == Tag.Checksums) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
+      } else if (otherDim && tagWithDim == Tag.Checksums) {
+        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
       }
 
-      if (!read.length) {
+      if (!read) {
         console.log(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim, buffer.toString())
 
-        read.push({ x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer })
+        read = ({ x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer })
       }
     }
     let skey = String(buffer)
     if (skey.includes('VILLAGE')) {
       if (skey.includes('DWELLERS')) {
-        read.push({ type: 'village-dwellers', skey: skey, key: buffer })
+        read = ({ type: 'village-dwellers', skey: skey, key: buffer })
       } else if (skey.includes('INFO')) {
-        read.push({ type: 'village-info', skey: skey, key: buffer })
+        read = ({ type: 'village-info', skey: skey, key: buffer })
       } else if (skey.includes('POI')) {
-        read.push({ type: 'village-poi', skey: skey, key: buffer })
+        read = ({ type: 'village-poi', skey: skey, key: buffer })
       } else if (skey.includes('PLAYERS')) {
-        read.push({ type: 'village-players', skey: skey, key: buffer })
+        read = ({ type: 'village-players', skey: skey, key: buffer })
       }
     }
 
-    if (!read.length) {
-      read.push({ type: 'unknown', skey: String(buffer), key: buffer })
+    if (!read) {
+      read = ({ type: 'unknown', skey: String(buffer), key: buffer })
     }
 
     return read
   }
 
   if (!db || !db.isOpen()) {
-    return []
+    throw new Error('No database open')
   }
 
   const out = []
 
-  const iter = db.getIterator({ values: true })
-  let entry = null
-  while (entry = await iter.next()) { // eslint-disable-line
-    const read = readKey(entry[0])
+  for await (const [key] of db.getIterator({ values: true })) {
+    const read = readKey(key)
     out.push(read)
   }
-  await iter.end()
+
   return out
+}
+
+// Init xxHash
+let hasher
+
+(async () => hasher = await xxhash())()
+
+export async function getChecksum(buffer: Buffer | Uint8Array) {
+  if (!hasher) {
+    hasher = await xxhash()
+  }
+  return Buffer.from(hasher.h64Raw(buffer))
 }

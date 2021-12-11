@@ -8,7 +8,7 @@
     "build": "tsc",
     "lint": "ts-standard",
     "fix": "ts-standard --fix",
-    "test": "mocha --require ts-node/register test/*.ts"
+    "test": "tsc && mocha --require ts-node/register test/*.ts"
   },
   "author": "extrmeheat",
   "repository": {
@@ -17,18 +17,19 @@
   "license": "MIT",
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
-    "minecraft-data": "extremeheat/node-minecraft-data#bedrock",
+    "minecraft-data": "^2.98.0",
     "prismarine-block": "extremeheat/prismarine-block#bedrock",
-    "prismarine-nbt": "github:extremeheat/prismarine-nbt#builder-fix",
-    "vec3": "^0.1.7",
+    "prismarine-nbt": "^1.5.0",
     "xxhash-wasm": "^0.4.1"
   },
   "devDependencies": {
     "@types/mocha": "^9.0.0",
     "@types/node": "^14.14.19",
+    "bedrock-protocol": "^3.8.0",
     "bedrock-provider": "file:./",
-    "leveldb-zlib": "^0.0.25",
-    "mocha": "^9.1.0",
+    "leveldb-zlib": "^1.0.0",
+    "minecraft-bedrock-server": "^1.1.0",
+    "mocha": "^9.1.3",
     "ts-node": "^9.1.1",
     "ts-standard": "^10.0.0",
     "typescript": "^4.2.4"
