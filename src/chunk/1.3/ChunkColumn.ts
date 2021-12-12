@@ -6,16 +6,16 @@ import { StorageType, Vec4 } from '../Chunk'
 import { BlobEntry, BlobStore, BlobType, CCHash } from '../../cache/blobs'
 import { Stream } from '../../Stream'
 import v8 from 'v8'
+import { minecraftVersionToChunkVersion, Version } from '../../versions'
 
-const MIN_Y = 0
-const MAX_Y = 15
 
-export = function (version: string) {
-  const SubChunk = subchunk(version, 8)
+export = function (version: string, mcData) {
+  const defaultChunkVersion = minecraftVersionToChunkVersion(version)
+  const SubChunk = subchunk(version, defaultChunkVersion >= Version.v1_17_30 ? 9 : 8)
   type SubChunk = InstanceType<typeof SubChunk>
   return class ChunkColumn {
     x: number; z: number
-    version: number
+    chunkVersion: number
     sections: SubChunk[] = []
     sectionsLen = 0
 
@@ -26,30 +26,43 @@ export = function (version: string) {
     heights?: Uint16Array
 
     // For a new version we can change this
-    minY = MIN_Y
-    maxY = MAX_Y
+    minY: number
+    maxY: number
+    // Chunk start offset
+    co: number
 
     biomesUpdated = true
     biomesHash: Buffer | null
 
-    constructor (x: number, z: number) {
+    constructor (x: number, z: number, chunkVersion?: number) {
       this.x = x
       this.z = z
+
+      this.chunkVersion = chunkVersion || defaultChunkVersion
+      if (this.chunkVersion >= Version.v1_17_30) {
+        this.minY = -4
+        this.maxY = 20
+      } else {
+        this.minY = 0
+        this.maxY = 15
+      }
+
+      this.co = Math.abs(this.minY)
     }
 
     getBlock (vec4: Vec4): Block {
       const Y = vec4.y >> 4
-      const sec = this.sections[this.minY + Y]
+      const sec = this.sections[this.co + Y]
       return sec.getBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z)
     }
 
     setBlock (vec4: Vec4, block: Block) {
       const cy = vec4.y >> 4
       if (cy < this.minY || cy > this.maxY) return
-      let sec = this.sections[this.minY + cy]
+      let sec = this.sections[this.co + cy]
       while (!sec) {
         this.addSection(SubChunk.create(this.sections.length))
-        sec = this.sections[this.minY + cy]
+        sec = this.sections[this.co + cy]
       }
       return sec.setBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z, block)
     }
@@ -60,23 +73,43 @@ export = function (version: string) {
 
     setBlockStateId (pos, runtimeId: number) {
       const cy = pos.y >> 4
-      return this.sections[cy].setBlockStateId(pos.l, pos.x, pos.y, pos.z, runtimeId)
-    }
-
-    addSection (section) {
-      this.sections.push(section)
-      this.sectionsLen++
+      return this.getSection(cy).setBlockStateId(pos.l, pos.x, pos.y, pos.z, runtimeId)
     }
 
     getSection (y: int) {
-      return this.sections[this.minY + y]
+      return this.sections[this.co + y]
+    }
+
+    setSection(y, section) {
+      this.sections[this.co + y] = section
+    }
+
+    addSection (section) {
+      if (!this.getSection(section.y)) {
+        this.sectionsLen++
+      }
+      this.setSection(section.y, section)
     }
 
     newSection (y: int) {
       const n = new SubChunk(y)
-      this.sections.push(n)
-      this.sectionsLen++
+      if (!this.getSection(y)) {
+        this.sectionsLen++
+      }
+      this.setSection(y, n)
       return n
+    }
+
+    getBlocks () {
+      const blocks = []
+      for (const section of this.sections) {
+        blocks.push(section.getBlocks())
+      }
+      const deduped = {}
+      for (const block of blocks) {
+        deduped[block.globalIndex] = block
+      }
+      return Object.values(deduped)
     }
 
     addEntity (nbt) {
@@ -189,6 +222,7 @@ export = function (version: string) {
       const stream = new Stream(buffer)
       this.sections = []
       for (let i = 0; i < sectionCount; i++) {
+        // in 1.17.30+, chunk index is sent in payload
         const section = new SubChunk(i)
         await section.decode(StorageType.Runtime, stream)
         this.sections.push(section)

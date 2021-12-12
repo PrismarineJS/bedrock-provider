@@ -2,11 +2,9 @@ import type { LevelDB } from 'leveldb-zlib'
 import NBT from 'prismarine-nbt'
 import { Stream } from '../Stream'
 import { getChunkWrapper } from './chunkLoader'
-import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './databaseKeys'
-import MinecraftData from 'minecraft-data'
+import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
 import { IChunkColumn, StorageType } from '../chunk/Chunk'
-
-const latestVersion = <any>MinecraftData.versions.bedrock.pop()
+import { Version } from '../versions'
 
 export class WorldProvider {
   db: LevelDB
@@ -25,7 +23,7 @@ export class WorldProvider {
       this.db.open()
     }
     this.dimension = options.dimension || 0
-    this.version = options.version || latestVersion.minecraftVersion
+    this.version = options.version
   }
 
   private async get (key): Promise<Buffer | null> {
@@ -46,10 +44,13 @@ export class WorldProvider {
     const ver = version || await this.getChunkVersion(x, z)
     const ChunkColumn = getChunkWrapper(ver, 0)
     if (ChunkColumn) {
-      const cc = new ChunkColumn(x, z)
+      const cc = new ChunkColumn(x, z, ver)
+      console.log('LOOKING', ver, cc.minY, cc.maxY)
       // TODO: Load height based on version
-      for (let y = cc.minY; y < cc.maxY; y++) {
+      const minY = ver >= Version.v1_17_30 ? cc.minY : 0
+      for (let y = minY; y < cc.maxY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
+        console.log('CHUNK', y, chunk)
         if (!chunk) break
         const subchunk = cc.newSection(y)
         await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
@@ -62,7 +63,7 @@ export class WorldProvider {
   async readEntities (x, z, version): Promise<NBT.NBT[]> {
     const ver = version || await this.getChunkVersion(x, z)
     const ret = []
-    if (ver >= Version.v17_0) {
+    if (ver >= Version.v0_17_0) {
       const key = KeyBuilder.buildEntityKey(x, z, this.dimension)
       const buffer = await this.get(key) as Buffer & { startOffset }
 
@@ -82,7 +83,7 @@ export class WorldProvider {
   async readBlockEntities (x, z, version): Promise<NBT.NBT[]> {
     const ver = version || await this.getChunkVersion(x, z)
     const ret = []
-    if (ver >= Version.v17_0) {
+    if (ver >= Version.v0_17_0) {
       const key = KeyBuilder.buildBlockEntityKey(x, z, this.dimension)
       const buffer = await this.get(key) as Buffer & { startOffset }
 
@@ -101,7 +102,7 @@ export class WorldProvider {
 
   async readBiomesAndElevation (x, z, version): Promise<{ heightmap: Buffer, biomes2d: Buffer } | null> {
     const ver = version || await this.getChunkVersion(x, z)
-    if (ver >= Version.v17_0) {
+    if (ver >= Version.v0_17_0) {
       const buffer = await this.get(KeyBuilder.buildHeightmapAndBiomeKey(x, z, this.dimension))
       if (buffer) {
         // TODO: When did this change from 256 -> 512?
@@ -116,7 +117,7 @@ export class WorldProvider {
 
   async readBorderBlocks (x, z, version) {
     const ver = version || await this.getChunkVersion(x, z)
-    if (ver >= Version.v17_0) {
+    if (ver >= Version.v0_17_0) {
       const buffer = await this.get(KeyBuilder.buildBorderBlocksKey(x, z, this.dimension))
       return buffer
     }
@@ -125,7 +126,7 @@ export class WorldProvider {
 
   async writeSubChunks (column: IChunkColumn): Promise<any> {
     const promises = []
-    if (column.chunkVersion >= Version.v17_0) {
+    if (column.chunkVersion >= Version.v0_17_0) {
       for (let y = column.minY; y < column.maxY; y++) {
         const section = column.getSection(y)
         if (!section) {
@@ -166,6 +167,10 @@ export class WorldProvider {
 
       return column
     }
+  }
+
+  getChunk(x: number, z: number, full: boolean = true) {
+    return this.load(x, z, full)
   }
 
   async save (column: IChunkColumn) {

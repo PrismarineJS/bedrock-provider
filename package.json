@@ -18,7 +18,7 @@
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
     "minecraft-data": "^2.98.0",
-    "prismarine-block": "extremeheat/prismarine-block#bedrock",
+    "prismarine-block": "github:extremeheat/prismarine-block#bedrock",
     "prismarine-nbt": "^1.5.0",
     "xxhash-wasm": "^0.4.1"
   },

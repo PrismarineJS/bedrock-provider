@@ -61,6 +61,9 @@ export default function (version, subChunkVersion) {
       let storageCount: byte = 1
       if (version >= 8) {
         storageCount = stream.readByte()
+        if (version >= 9) {
+          this.y = stream.readByte() // Sub Chunk Index
+        }
       }
       for (let i = 0; i < storageCount; i++) {
         const paletteType: byte = stream.readByte()
@@ -149,7 +152,11 @@ export default function (version, subChunkVersion) {
 
     async encode (storageFormat: StorageType, checksum = false): Promise<Buffer> {
       const stream = new Stream()
-      this.encodeV8(stream, storageFormat)
+      if (subChunkVersion >= 8) {
+        this.encodeV8(stream, storageFormat)
+      } else {
+        throw new Error('Unsupported subchunk version')
+      }
       const buf = stream.getBuffer()
       if (checksum && storageFormat === StorageType.NetworkPersistence) {
         this.hash = await getChecksum(buf)
@@ -163,8 +170,11 @@ export default function (version, subChunkVersion) {
      * @param overNetwork encode with varints
      */
     encodeV8 (stream: Stream, format: StorageType) {
-      stream.writeByte(8) // write the chunk version
+      stream.writeByte(subChunkVersion) // write the chunk version
       stream.writeByte(this.blocks.length)
+      if (subChunkVersion >= 9) { // caves & cliffs world indexing
+        stream.writeByte(this.y)
+      }
       for (let l = 0; l < this.blocks.length; l++) {
         const palette = this.palette2[l]
         let paletteType = 0 // n >> 1 = bits per block, n & 1 = 0 for local palette
@@ -244,6 +254,15 @@ export default function (version, subChunkVersion) {
      */
     getPaletteEntry (l: int, x: int, y: int, z: int): PaletteEntry {
       return this.palette2[l].get(this.blocks[l][((x << 8) | (z << 4) | y)])
+    }
+
+    getBlocks () {
+      const blocks = []
+      for (const l in this.palette2) {
+        for (const block of this.palette2[l].values()) {
+          blocks.push(block)
+        }
+      }
     }
 
     // EXPORT FUNCTIONS
