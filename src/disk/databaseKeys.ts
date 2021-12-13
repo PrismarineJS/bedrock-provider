@@ -1,7 +1,7 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
 
 export enum Tag {
-  Data3D = 43, // 0x2b
+  Data3D = 43, // 0x2b +
   VersionNew = 44, // 0x2c ','
   Data2D = 45, // 0x2d, height map + biomes
   Data2DLegacy = 46,

@@ -14,16 +14,28 @@ export class BiomeSection {
   readLegacy2D (stream: Stream) {
     for (let x = 0; x < 16; x++) {
       for (let z = 0; z < 16; z++) {
-        this.biomes[x + z * 15] = stream.readByte()
+        this.setBiome(x, 15, z, stream.readByte())
       }
     }
   }
 
-  read (type: StorageType, buf: Stream) {
+  copy (other: BiomeSection) {
+    this.biomes = new Uint16Array(other.biomes)
+    this.palette = JSON.parse(JSON.stringify(other.palette))
+  }
+
+  read (type: StorageType, buf: Stream, previousSection?: BiomeSection) {
     const paletteType = buf.readByte()
     // below should always be 1, so we use IDs
     // const usingNetworkRuntimeIds = paletteType & 1
     const bitsPerBlock = paletteType >> 1
+
+    if (bitsPerBlock === 0) {
+      this.biomes.fill(0)
+      this.palette.push(buf.readLInt())
+      return // short circuit
+    }
+
     const bsc = new PalettedBlockStateStorage(bitsPerBlock)
     bsc.read(buf)
     for (let x = 0; x < 16; x++) {
@@ -94,7 +106,7 @@ export class BiomeSection {
     for (let x = 0; x < 16; x++) {
       for (let z = 0; z < 16; z++) {
         const y = 15
-        const biome = this.biomes[((x << 8) | (z << 4) | y)]
+        const biome = this.getBiome(x, y, z)
         stream.writeByte(biome)
       }
     }

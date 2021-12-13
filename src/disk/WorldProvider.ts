@@ -45,12 +45,9 @@ export class WorldProvider {
     const ChunkColumn = getChunkWrapper(ver, 0)
     if (ChunkColumn) {
       const cc = new ChunkColumn(x, z, ver)
-      console.log('LOOKING', ver, cc.minY, cc.maxY)
-      // TODO: Load height based on version
       const minY = ver >= Version.v1_17_30 ? cc.minY : 0
       for (let y = minY; y < cc.maxY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
-        console.log('CHUNK', y, chunk)
         if (!chunk) break
         const subchunk = cc.newSection(y)
         await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))

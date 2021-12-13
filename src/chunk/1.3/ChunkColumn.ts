@@ -157,10 +157,21 @@ export = function (version: string, mcData) {
 
     // Load 3D biome data from disk
     loadBiomes (buf: Stream) {
-      for (let y = this.minY; buf.peek(); y++) {
-        const biome = new BiomeSection(y)
-        biome.read(StorageType.LocalPersistence, buf)
-        this.biomes.push(biome)
+      let last
+      for (let y = this.minY; buf.peek() != null; y++) {
+        if (buf.peek() === 0xff) { // re-use the last data
+          if (!last) throw new Error('No last biome')
+          const biome = new BiomeSection(y)
+          biome.copy(last)
+          this.biomes.push(biome)
+          // skip
+          buf.readByte()
+        } else {
+          const biome = new BiomeSection(y)
+          biome.read(StorageType.LocalPersistence, buf)
+          last = biome
+          this.biomes.push(biome)
+        }
       }
     }
 
@@ -193,7 +204,7 @@ export = function (version: string, mcData) {
       }
 
       // TODO: Properly allocate the heightmap
-      let heightmap = Buffer.alloc(512)
+      const heightmap = Buffer.alloc(512)
       let biomeBuf
       if (this.chunkVersion >= Version.v1_18_0) {
         const stream = new Stream()
@@ -210,7 +221,7 @@ export = function (version: string, mcData) {
           biomeBuf = Buffer.alloc(256)
         }
       }
-      
+
       const sectionBufs = []
       for (const section of this.sections) {
         sectionBufs.push(await section.encode(StorageType.Runtime))
@@ -253,12 +264,12 @@ export = function (version: string, mcData) {
           if (this.biomes[0]) {
             const stream = new Stream()
             this.biomes[0].exportLegacy2D(stream)
-            await this.updateBiomeHash(stream.getBuffer())      
+            await this.updateBiomeHash(stream.getBuffer())
           } else {
             await this.updateBiomeHash(Buffer.alloc(256))
           }
         }
-      
+
         this.biomesUpdated = false
         blobStore.write(this.biomesHash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes, buffer: this.biomes }))
       }
@@ -271,7 +282,6 @@ export = function (version: string, mcData) {
       const tileBufs = []
       for (const key in this.tiles) {
         const tile = this.tiles[key]
-        // console.log(JSON.stringify(tile))
         tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
       }
 
@@ -307,7 +317,7 @@ export = function (version: string, mcData) {
         this.biomes = [biomes]
       }
       const extra = stream.read(stream.readByte())
-      if (extra.length) console.debug('[wp] Read ', extra, 'bytes')
+      if (extra.length) throw Error(`Read ${extra} extra bytes`)
 
       const buf = stream.getBuffer()
       buf.startOffset = stream.getOffset()
