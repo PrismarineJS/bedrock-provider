@@ -34,7 +34,7 @@ export enum Version {
 }
 
 // TODO: move to mcdata
-export function minecraftVersionToChunkVersion(version: string): number {
+export function minecraftVersionToChunkVersion (version: string): number {
   return {
     '1.16.201': Version.v1_16_200,
     '1.16.210': Version.v1_16_210,
@@ -43,6 +43,6 @@ export function minecraftVersionToChunkVersion(version: string): number {
     '1.17.10': Version.v1_17_0,
     '1.17.30': Version.v1_17_30,
     '1.17.40': Version.v1_17_40,
-    '1.18.0': Version.v1_18_0,
+    '1.18.0': Version.v1_18_0
   }[version]
 }

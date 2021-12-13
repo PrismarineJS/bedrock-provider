@@ -7,12 +7,14 @@ import { BlobEntry, BlobStore, BlobType, CCHash } from '../../cache/blobs'
 import { Stream } from '../../Stream'
 import v8 from 'v8'
 import { minecraftVersionToChunkVersion, Version } from '../../versions'
-
+import { BiomeSection } from './BiomeSection'
+import PrismarineBiome from 'prismarine-biome'
 
 export = function (version: string, mcData) {
   const defaultChunkVersion = minecraftVersionToChunkVersion(version)
   const SubChunk = subchunk(version, defaultChunkVersion >= Version.v1_17_30 ? 9 : 8)
   type SubChunk = InstanceType<typeof SubChunk>
+  const Biome = PrismarineBiome(version)
   return class ChunkColumn {
     x: number; z: number
     chunkVersion: number
@@ -22,7 +24,7 @@ export = function (version: string, mcData) {
     entities: NBT[] = []
     tiles: { string?: NBT } = {}
 
-    biomes?: Uint8Array
+    biomes: BiomeSection[] = []
     heights?: Uint16Array
 
     // For a new version we can change this
@@ -80,7 +82,7 @@ export = function (version: string, mcData) {
       return this.sections[this.co + y]
     }
 
-    setSection(y, section) {
+    setSection (y: number, section: SubChunk) {
       this.sections[this.co + y] = section
     }
 
@@ -136,15 +138,44 @@ export = function (version: string, mcData) {
     }
 
     getBiome ({ x, y, z }) {
-      // todo
-      return 0
+      const Y = y >> 4
+      const sec = this.biomes[this.co + Y]
+      return new Biome(sec.getBiome(x, y & 0xf, z))
     }
 
     setBiome ({ x, y, z }, biome) {
+      const cy = y >> 4
+      if (cy < this.minY || cy > this.maxY) return
+      let sec = this.biomes[this.co + cy]
       this.biomesUpdated = true
+      while (!sec) {
+        this.biomes.push(new BiomeSection(this.co + this.sections.length))
+        sec = this.biomes[this.co + cy]
+      }
+      return sec.setBiome(x, y & 0xf, z, biome)
     }
 
-    async updateHash (fromBuf: Buffer | Uint8Array): Promise<Buffer> {
+    // Load 3D biome data from disk
+    loadBiomes (buf: Stream) {
+      for (let y = this.minY; buf.peek(); y++) {
+        const biome = new BiomeSection(y)
+        biome.read(StorageType.LocalPersistence, buf)
+        this.biomes.push(biome)
+      }
+    }
+
+    loadLegacyBiomes (buf: Stream) {
+      const biome = new BiomeSection(0)
+      biome.readLegacy2D(buf)
+      this.biomes = [biome]
+    }
+
+    // Load heightmap data
+    loadHeights (heightmap: Uint16Array) {
+      this.heights = heightmap
+    }
+
+    async updateBiomeHash (fromBuf: Buffer | Uint8Array): Promise<Buffer> {
       this.biomesUpdated = false
       this.biomesHash = await getChecksum(fromBuf)
       return this.biomesHash
@@ -160,16 +191,36 @@ export = function (version: string, mcData) {
         const tile = this.tiles[key]
         tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
       }
-      const biomeBuf = this.biomes?.length ? Buffer.from(this.biomes) : Buffer.alloc(256)
+
+      // TODO: Properly allocate the heightmap
+      let heightmap = Buffer.alloc(512)
+      let biomeBuf
+      if (this.chunkVersion >= Version.v1_18_0) {
+        const stream = new Stream()
+        for (const biomeSection of this.biomes) {
+          biomeSection.export(StorageType.NetworkPersistence, stream)
+        }
+        biomeBuf = stream.getBuffer()
+      } else {
+        const stream = new Stream()
+        if (this.biomes[0]) {
+          this.biomes[0].exportLegacy2D(stream)
+          biomeBuf = stream.getBuffer()
+        } else {
+          biomeBuf = Buffer.alloc(256)
+        }
+      }
+      
       const sectionBufs = []
       for (const section of this.sections) {
         sectionBufs.push(await section.encode(StorageType.Runtime))
       }
       return Buffer.concat([
         ...sectionBufs,
+        heightmap,
         biomeBuf,
-        Buffer.from([0]), // border blocks
-        ...tileBufs
+        Buffer.from([0]), // border blocks count
+        ...tileBufs // block entities
       ])
     }
 
@@ -191,8 +242,23 @@ export = function (version: string, mcData) {
         blobHashes.push({ hash: section.hash, type: BlobType.ChunkSection })
       }
       if (this.biomesUpdated || !this.biomesHash || !blobStore.read(this.biomesHash)) {
-        if (!this.biomes) this.biomes = new Uint8Array(256)
-        await this.updateHash(this.biomes)
+        if (this.chunkVersion >= Version.v1_18_0) {
+          const stream = new Stream()
+          for (const biomeSection of this.biomes) {
+            biomeSection.export(StorageType.NetworkPersistence, stream)
+          }
+          const biomeBuf = stream.getBuffer()
+          await this.updateBiomeHash(biomeBuf)
+        } else {
+          if (this.biomes[0]) {
+            const stream = new Stream()
+            this.biomes[0].exportLegacy2D(stream)
+            await this.updateBiomeHash(stream.getBuffer())      
+          } else {
+            await this.updateBiomeHash(Buffer.alloc(256))
+          }
+        }
+      
         this.biomesUpdated = false
         blobStore.write(this.biomesHash, new BlobEntry({ x: this.x, z: this.z, type: BlobType.Biomes, buffer: this.biomes }))
       }
@@ -227,7 +293,19 @@ export = function (version: string, mcData) {
         await section.decode(StorageType.Runtime, stream)
         this.sections.push(section)
       }
-      this.biomes = new Uint8Array(stream.read(256))
+
+      if (this.chunkVersion >= Version.v1_18_0) {
+        for (let i = 0; i < sectionCount; i++) {
+          const section = this.sections[i]
+          const biomeSection = new BiomeSection(section.y)
+          biomeSection.read(StorageType.Runtime, stream)
+          this.biomes.push(biomeSection)
+        }
+      } else {
+        const biomes = new BiomeSection(0)
+        biomes.readLegacy2D(stream)
+        this.biomes = [biomes]
+      }
       const extra = stream.read(stream.readByte())
       if (extra.length) console.debug('[wp] Read ', extra, 'bytes')
 
@@ -243,7 +321,7 @@ export = function (version: string, mcData) {
 
     /**
      * Decodes cached chunks sent over the network
-     * @param blobs The blob hashes sent in the Chunk packe
+     * @param blobs The blob hashes sent in the Chunk packet
      * @param blobStore Our blob store for cached data
      * @param {Buffer} payload The rest of the non-cached data
      * @returns {CCHash[]} A list of hashes we don't have and need. If len > 0, decode failed.

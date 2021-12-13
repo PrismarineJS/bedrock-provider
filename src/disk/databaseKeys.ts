@@ -1,10 +1,11 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
 
 export enum Tag {
-  VersionNew = 44, // ','
-  Data2D = 45, // height map + biomes
+  Data3D = 43, // 0x2b
+  VersionNew = 44, // 0x2c ','
+  Data2D = 45, // 0x2d, height map + biomes
   Data2DLegacy = 46,
-  SubChunkPrefix = 47,
+  SubChunkPrefix = 47, // 0x2f (/)
   LegacyTerrain = 48,
   BlockEntity = 49,
   Entity = 50,
@@ -15,6 +16,7 @@ export enum Tag {
   BorderBlocks = 56, // Education Edition Feature
   HardCodedSpawnAreas = 57,
   Checksums = 59, // ';'
+  // ? = 64, // 0x3d (=) ??
   VersionOld = 118
 }
 
@@ -64,6 +66,18 @@ export class KeyBuilder {
       stream.writeLInt(dimId)
     }
     stream.writeByte(Tag.Data2D)
+    return stream.getBuffer()
+  }
+
+  // Caves and cliffs+ chunks
+  static buildHeightmapAnd3DBiomeKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
+    stream.writeLInt(x)
+    stream.writeLInt(z)
+    if (dimId) {
+      stream.writeLInt(dimId)
+    }
+    stream.writeByte(Tag.Data3D)
     return stream.getBuffer()
   }
 

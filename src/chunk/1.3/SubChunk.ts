@@ -170,8 +170,8 @@ export default function (version, subChunkVersion) {
      * @param overNetwork encode with varints
      */
     encodeV8 (stream: Stream, format: StorageType) {
-      stream.writeByte(subChunkVersion) // write the chunk version
-      stream.writeByte(this.blocks.length)
+      stream.writeByte(subChunkVersion) // write the sub-chunk version
+      stream.writeByte(this.blocks.length) // write how many storages
       if (subChunkVersion >= 9) { // caves & cliffs world indexing
         stream.writeByte(this.y)
       }
@@ -180,7 +180,7 @@ export default function (version, subChunkVersion) {
         let paletteType = 0 // n >> 1 = bits per block, n & 1 = 0 for local palette
         // TODO: handle air chunks
         const palsize: int = palette.size
-        let bitsPerBlock: byte = Math.ceil(Math.log2(palsize)) | 1
+        let bitsPerBlock: byte = Math.ceil(Math.log2(palsize)) || 1
         const runtimeSerialization = format === StorageType.Runtime ? 1 : 0
 
         if (bitsPerBlock > 8) {

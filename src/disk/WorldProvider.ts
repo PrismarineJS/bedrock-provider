@@ -100,18 +100,24 @@ export class WorldProvider {
     return ret
   }
 
-  async readBiomesAndElevation (x, z, version): Promise<{ heightmap: Buffer, biomes2d: Buffer } | null> {
-    const ver = version || await this.getChunkVersion(x, z)
-    if (ver >= Version.v0_17_0) {
-      const buffer = await this.get(KeyBuilder.buildHeightmapAndBiomeKey(x, z, this.dimension))
-      if (buffer) {
-        // TODO: When did this change from 256 -> 512?
-        const heightmap = buffer.slice(0, 512)
-        // TODO: this will most likely change in 1.17
-        const biomes2d = buffer.slice(512, 512 + 256)
-        return { heightmap, biomes2d }
+  async readBiomesAndElevation (x, z, version): Promise<{ heightmap: Buffer, biomes2d?: Buffer, biomes3d?: Buffer } | null> {
+    const data2d = await this.get(KeyBuilder.buildHeightmapAndBiomeKey(x, z, this.dimension))
+
+    if (data2d) {
+      // TODO: When did this change from 256 -> 512?
+      const heightmap = data2d.slice(0, 512)
+      // TODO: this will most likely change in 1.17
+      const biomes2d = data2d.slice(512, 512 + 256)
+      return { heightmap, biomes2d }
+    } else {
+      const data3d = await this.get(KeyBuilder.buildHeightmapAnd3DBiomeKey(x, z, this.dimension))
+      if (data3d) {
+        const heightmap = data3d.slice(0, 512)
+        const biomes3d = data3d.slice(512)
+        return { heightmap, biomes3d }
       }
     }
+
     return null
   }
 
@@ -160,17 +166,22 @@ export class WorldProvider {
         const tiles = await this.readBlockEntities(x, z, cver)
         column.entities = await this.readEntities(x, z, cver)
         tiles.forEach(tile => column.addBlockEntity(tile))
-        const data2d = await this.readBiomesAndElevation(x, z, cver)
-        column.biomes = new Uint8Array(data2d.biomes2d)
-        column.heights = new Uint16Array(data2d.heightmap)
+        const data = await this.readBiomesAndElevation(x, z, cver)
+
+        column.loadHeights(new Uint16Array(data.heightmap))
+        if (data.biomes2d) {
+          column.loadLegacyBiomes(new Stream(data.biomes2d))
+        } else if (data.biomes3d) {
+          column.loadBiomes(new Stream(data.biomes3d))
+        }
       }
 
       return column
     }
   }
 
-  getChunk(x: number, z: number, full: boolean = true) {
-    return this.load(x, z, full)
+  async getChunk (x: number, z: number, full: boolean = true) {
+    return await this.load(x, z, full)
   }
 
   async save (column: IChunkColumn) {
