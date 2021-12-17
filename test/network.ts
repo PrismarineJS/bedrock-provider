@@ -50,29 +50,29 @@ describe('network buffer test', function () {
     console.log('CC', cc)
   })
 
-  it('works on 1.16', async function () {
-    const ChunkColumn = chunk('1.16.220')
-    const buf = Buffer.from(fs.readFileSync(join(__dirname, './1.16/chunk-0.txt'), 'utf-8'), 'hex')
-    const stream = new Stream(buf)
-    const packetId = stream.readVarInt()
-    const x = stream.readVarInt()
-    const z = stream.readVarInt()
-    const subchunkCount = stream.readUnsignedVarInt()
-    const cacheEnabled = stream.readByte()
-    const payloadLength = stream.readUnsignedVarInt()
-    const payload = stream.read(payloadLength)
-    console.log('Reading chunk at ', x, z, subchunkCount, cacheEnabled)
-    // console.log(stream.getBuffer().slice(stream.offset))
-    console.log(payload)
+  // it('works on 1.16', async function () {
+  //   const ChunkColumn = chunk('1.16.220')
+  //   const buf = Buffer.from(fs.readFileSync(join(__dirname, './1.16/chunk-0.txt'), 'utf-8'), 'hex')
+  //   const stream = new Stream(buf)
+  //   const packetId = stream.readVarInt()
+  //   const x = stream.readVarInt()
+  //   const z = stream.readVarInt()
+  //   const subchunkCount = stream.readUnsignedVarInt()
+  //   const cacheEnabled = stream.readByte()
+  //   const payloadLength = stream.readUnsignedVarInt()
+  //   const payload = stream.read(payloadLength)
+  //   console.log('Reading chunk at ', x, z, subchunkCount, cacheEnabled)
+  //   // console.log(stream.getBuffer().slice(stream.offset))
+  //   console.log(payload)
   
-    const column = new ChunkColumn(x, z)
-    await column.networkDecodeNoCache(payload, subchunkCount)
-    const encoded = await column.networkEncodeNoCache()
+  //   const column = new ChunkColumn(x, z)
+  //   await column.networkDecodeNoCache(payload, subchunkCount)
+  //   const encoded = await column.networkEncodeNoCache()
 
-    if (!payload.equals(encoded)) {
-      console.log('Payload', payload.toString('hex'))
-      console.log('Encoded', encoded.toString('hex'))
-      throw new Error('Payload does not match')
-    }
-  })
+  //   if (!payload.equals(encoded)) {
+  //     console.log('Payload', payload.toString('hex'))
+  //     console.log('Encoded', encoded.toString('hex'))
+  //     throw new Error('Payload does not match')
+  //   }
+  // })
 })

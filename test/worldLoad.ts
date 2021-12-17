@@ -22,6 +22,7 @@ const versions = ['1.16.220', '1.18.0']
 
 for (const version of versions) {
   describe('new world in ' + version, function () {
+    this.timeout(120 * 1000)
     it('can load', async function () {
       console.log('./bds-' + version)
       const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': 19132 })
