@@ -2,7 +2,7 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
 
 export class Stream extends BinaryStream {
-  get offset() {
+  get offset () {
     return super.offset
   }
 

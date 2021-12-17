@@ -131,7 +131,7 @@ export = function (version: string, mcData) {
       delete this.tiles[`${x},${y},${z}`]
     }
 
-    moveBlockEntity(x, y, z, x2, y2, z2) {
+    moveBlockEntity (x, y, z, x2, y2, z2) {
       const key = `${x},${y},${z}`
       const nbt = this.tiles[key]
       if (!nbt) return
@@ -139,7 +139,7 @@ export = function (version: string, mcData) {
       this.tiles[`${x2},${y2},${z2}`] = nbt
     }
 
-    getSectionBlockEntities(y: number) {
+    getSectionBlockEntities (y: number) {
       const tiles = []
       for (const id in this.tiles) {
         const tile = this.tiles[id]
@@ -262,7 +262,7 @@ export = function (version: string, mcData) {
 
     async networkEncodeSubChunkNoCache (y) {
       const tiles = this.getSectionBlockEntities(y)
-      
+
       const section = this.getSection(y)
       const subchunk = await section.encode(StorageType.Runtime)
 
@@ -338,7 +338,7 @@ export = function (version: string, mcData) {
     async networkDecodeNoCache (buffer: Buffer, sectionCount: number) {
       const stream = new Stream(buffer)
 
-      if (sectionCount !== -1) { // In 1.18+, with sectionCount as -1 we only get the biomes here
+      if (sectionCount === -1) { // In 1.18+, with sectionCount as -1 we only get the biomes here
         return this.loadBiomes(stream, StorageType.NetworkPersistence)
       }
 
@@ -375,7 +375,7 @@ export = function (version: string, mcData) {
       }
     }
 
-    async networkDecodeSubChunkNoCache(y: int, buffer: Buffer) {
+    async networkDecodeSubChunkNoCache (y: int, buffer: Buffer) {
       const stream = new Stream(buffer)
       const section = new SubChunk(y)
       await section.decode(StorageType.Runtime, stream)
