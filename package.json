@@ -8,7 +8,7 @@
     "build": "tsc",
     "lint": "ts-standard",
     "fix": "ts-standard --fix",
-    "test": "tsc && mocha --require ts-node/register test/*.ts"
+    "test": "tsc && mocha --bail --require ts-node/register test/*.ts"
   },
   "author": "extrmeheat",
   "repository": {

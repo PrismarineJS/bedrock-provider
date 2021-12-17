@@ -16,7 +16,7 @@ export default function (version, subChunkVersion) {
 
   return class SubChunk extends BaseSubChunk {
     columnVersion: number
-    sectionVersion: number
+
     y: number
     blocks: Uint16Array[]
     buffer?: Buffer

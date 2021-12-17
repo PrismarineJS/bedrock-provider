@@ -122,8 +122,32 @@ export = function (version: string, mcData) {
     addBlockEntity (nbt) {
       // console.log('[wp] adding tile', nbt)
       const x = nbt.value.x.value
+      const y = nbt.value.y.value
       const z = nbt.value.z.value
-      this.tiles[x + ',' + z] = nbt
+      this.tiles[`${x},${y},${z}`] = nbt
+    }
+
+    removeBlockEntity (x, y, z) {
+      delete this.tiles[`${x},${y},${z}`]
+    }
+
+    moveBlockEntity(x, y, z, x2, y2, z2) {
+      const key = `${x},${y},${z}`
+      const nbt = this.tiles[key]
+      if (!nbt) return
+      delete this.tiles[key]
+      this.tiles[`${x2},${y2},${z2}`] = nbt
+    }
+
+    getSectionBlockEntities(y: number) {
+      const tiles = []
+      for (const id in this.tiles) {
+        const tile = this.tiles[id]
+        if ((tile.value.y.value >> 4) === y) {
+          tiles.push(tile)
+        }
+      }
+      return tiles
     }
 
     getSections (): SubChunk[] {
@@ -236,6 +260,21 @@ export = function (version: string, mcData) {
       ])
     }
 
+    async networkEncodeSubChunkNoCache (y) {
+      const tiles = this.getSectionBlockEntities(y)
+      
+      const section = this.getSection(y)
+      const subchunk = await section.encode(StorageType.Runtime)
+
+      const tileBufs = []
+      for (const tile of tiles) {
+        tileBufs.push(nbt.writeUncompressed(tile, 'littleVarint'))
+      }
+
+      // TODO: Properly allocate the heightmap
+      return [Buffer.concat([subchunk, ...tileBufs])]
+    }
+
     /**
      * Encodes this chunk column for use over network with caching enabled
      *
@@ -298,7 +337,7 @@ export = function (version: string, mcData) {
     // Pre-1.18 method
     async networkDecodeNoCache (buffer: Buffer, sectionCount: number) {
       const stream = new Stream(buffer)
-      
+
       if (sectionCount !== -1) { // In 1.18+, with sectionCount as -1 we only get the biomes here
         return this.loadBiomes(stream, StorageType.NetworkPersistence)
       }
@@ -325,6 +364,22 @@ export = function (version: string, mcData) {
       }
       const extra = stream.read(stream.readByte())
       if (extra.length) throw Error(`Read ${extra} extra bytes`)
+
+      const buf = stream.getBuffer()
+      buf.startOffset = stream.getOffset()
+      while (stream.peek() === 0x0A) {
+        const { parsed, metadata } = await nbt.parse(buf, 'littleVarint')
+        stream.offset += metadata.size
+        buf.startOffset += metadata.size
+        this.addBlockEntity(parsed)
+      }
+    }
+
+    async networkDecodeSubChunkNoCache(y: int, buffer: Buffer) {
+      const stream = new Stream(buffer)
+      const section = new SubChunk(y)
+      await section.decode(StorageType.Runtime, stream)
+      this.setSection(y, section)
 
       const buf = stream.getBuffer()
       buf.startOffset = stream.getOffset()
