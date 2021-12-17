@@ -263,6 +263,7 @@ export default function (version, subChunkVersion) {
           blocks.push(block)
         }
       }
+      return blocks
     }
 
     // EXPORT FUNCTIONS

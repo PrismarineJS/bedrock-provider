@@ -169,7 +169,7 @@ export class WorldProvider {
         if (data.biomes2d) {
           column.loadLegacyBiomes(new Stream(data.biomes2d))
         } else if (data.biomes3d) {
-          column.loadBiomes(new Stream(data.biomes3d))
+          column.loadBiomes(new Stream(data.biomes3d), StorageType.LocalPersistence)
         }
       }
 

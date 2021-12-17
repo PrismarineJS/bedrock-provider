@@ -44,5 +44,5 @@ export function minecraftVersionToChunkVersion (version: string): number {
     '1.17.30': Version.v1_17_30,
     '1.17.40': Version.v1_17_40,
     '1.18.0': Version.v1_18_0
-  }[version]
+  }[version.replace('bedrock_', '')]
 }

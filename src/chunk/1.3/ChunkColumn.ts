@@ -107,6 +107,7 @@ export = function (version: string, mcData) {
       for (const section of this.sections) {
         blocks.push(section.getBlocks())
       }
+
       const deduped = {}
       for (const block of blocks) {
         deduped[block.globalIndex] = block
@@ -156,9 +157,9 @@ export = function (version: string, mcData) {
     }
 
     // Load 3D biome data from disk
-    loadBiomes (buf: Stream) {
+    loadBiomes (buf: Stream, storageType: StorageType) {
       let last
-      for (let y = this.minY; buf.peek() != null; y++) {
+      for (let y = this.minY; buf.peek(); y++) {
         if (buf.peek() === 0xff) { // re-use the last data
           if (!last) throw new Error('No last biome')
           const biome = new BiomeSection(y)
@@ -168,7 +169,7 @@ export = function (version: string, mcData) {
           buf.readByte()
         } else {
           const biome = new BiomeSection(y)
-          biome.read(StorageType.LocalPersistence, buf)
+          biome.read(storageType, buf)
           last = biome
           this.biomes.push(biome)
         }
@@ -294,8 +295,14 @@ export = function (version: string, mcData) {
       }
     }
 
+    // Pre-1.18 method
     async networkDecodeNoCache (buffer: Buffer, sectionCount: number) {
       const stream = new Stream(buffer)
+      
+      if (sectionCount !== -1) { // In 1.18+, with sectionCount as -1 we only get the biomes here
+        return this.loadBiomes(stream, StorageType.NetworkPersistence)
+      }
+
       this.sections = []
       for (let i = 0; i < sectionCount; i++) {
         // in 1.17.30+, chunk index is sent in payload

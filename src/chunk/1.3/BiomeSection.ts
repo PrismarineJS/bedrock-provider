@@ -32,7 +32,7 @@ export class BiomeSection {
 
     if (bitsPerBlock === 0) {
       this.biomes.fill(0)
-      this.palette.push(buf.readLInt())
+      this.palette.push(type === StorageType.LocalPersistence ? buf.readLInt() : (buf.readUnsignedVarInt() >> 1))
       return // short circuit
     }
 
@@ -77,7 +77,7 @@ export class BiomeSection {
 
   export (type: StorageType, stream: Stream) {
     const bitsPerBlock: byte = Math.ceil(Math.log2(this.palette.length)) || 1
-    stream.writeByte(bitsPerBlock | 1)
+    stream.writeByte((bitsPerBlock << 1) | 1)
     const bsc = new PalettedBlockStateStorage(bitsPerBlock)
     for (let x = 0; x < 16; x++) {
       for (let z = 0; z < 16; z++) {
