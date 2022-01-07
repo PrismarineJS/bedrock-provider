@@ -1,6 +1,6 @@
 {
   "name": "bedrock-provider",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "Minecraft Bedrock edition chunk provider",
   "main": "./js/index.js",
   "scripts": {
@@ -18,10 +18,11 @@
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
     "debug": "^4.3.3",
-    "minecraft-data": "^2.98.0",
+    "minecraft-data": "^2.104.0",
     "prismarine-biome": "^1.1.1",
     "prismarine-block": "^1.11.0",
-    "prismarine-nbt": "^1.5.0",
+    "prismarine-nbt": "^2.0.0",
+    "vec3": "^0.1.7",
     "xxhash-wasm": "^0.4.1"
   },
   "devDependencies": {
