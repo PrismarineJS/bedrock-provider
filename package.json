@@ -1,6 +1,6 @@
 {
   "name": "bedrock-provider",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "Minecraft Bedrock edition chunk provider",
   "main": "./js/index.js",
   "scripts": {
@@ -17,9 +17,9 @@
   "license": "MIT",
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
-    "minecraft-data": "extremeheat/node-minecraft-data#bedrock",
-    "prismarine-block": "extremeheat/prismarine-block#bedrock",
-    "prismarine-nbt": "github:extremeheat/prismarine-nbt#builder-fix",
+    "minecraft-data": "^2.104.0",
+    "prismarine-block": "^1.11.0",
+    "prismarine-nbt": "^2.0.0",
     "vec3": "^0.1.7",
     "xxhash-wasm": "^0.4.1"
   },
