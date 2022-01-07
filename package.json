@@ -17,6 +17,7 @@
   "license": "MIT",
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
+    "debug": "^4.3.3",
     "minecraft-data": "^2.98.0",
     "prismarine-biome": "^1.1.1",
     "prismarine-block": "github:extremeheat/prismarine-block#bedrock",

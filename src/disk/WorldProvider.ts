@@ -1,10 +1,10 @@
 import type { LevelDB } from 'leveldb-zlib'
 import NBT from 'prismarine-nbt'
 import { Stream } from '../Stream'
-import { getChunkWrapper } from './chunkLoader'
 import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
 import { IChunkColumn, StorageType } from '../chunk/Chunk'
-import { Version } from '../versions'
+import { Version, chunkVersionToMinecraftVersion } from '../versions'
+import getChunk from '../chunk/loader'
 
 export class WorldProvider {
   db: LevelDB
@@ -42,7 +42,9 @@ export class WorldProvider {
 
   async readSubChunks (x, z, version?) {
     const ver = version || await this.getChunkVersion(x, z)
-    const ChunkColumn = getChunkWrapper(ver, 0)
+    const mcVer = chunkVersionToMinecraftVersion(ver)
+    const ChunkColumn = getChunk(mcVer)
+
     if (ChunkColumn) {
       const cc = new ChunkColumn(x, z, ver)
       const minY = ver >= Version.v1_17_30 ? cc.minY : 0
@@ -54,6 +56,7 @@ export class WorldProvider {
       }
       return cc
     }
+
     return null
   }
 

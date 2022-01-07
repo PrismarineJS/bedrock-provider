@@ -1,4 +1,6 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
+import debugLogger from 'debug'
+const debug = debugLogger('bedrock-provider')
 
 export enum Tag {
   Data3D = 43, // 0x2b +
@@ -20,8 +22,6 @@ export enum Tag {
   VersionOld = 118
 }
 
-globalThis.ckeys = []
-
 export class KeyBuilder {
   static buildChunkKey (x: int, y: byte, z: int, dimId: int) {
     const stream = new BinaryStream()
@@ -32,7 +32,6 @@ export class KeyBuilder {
     }
     stream.writeByte(Tag.SubChunkPrefix)
     stream.writeByte(y)
-    // globalThis.ckeys.push([x, y, z, dimId, stream.getBuffer()])
     return stream.getBuffer()
   }
 
@@ -203,70 +202,69 @@ export async function recurseMinecraftKeys (db) {
         // biomes and elevation for other dimensions
         read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer }      } else if (overworld && tagOver == Tag.Data2D) {
         // biomes + elevation for overworld
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer }
       } else if (otherDim && tagWithDim == Tag.Entity) {
         // enities for dim
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer }
       } else if (overworld && tagOver == Tag.Entity) {
         // entities for overworld
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer }
       } else if (otherDim && tagWithDim == Tag.BlockEntity) {
         // block entities for dim
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer }
       } else if (overworld && tagOver == Tag.BlockEntity) {
         // block entities for overworld
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer }
       } else if (overworld && tagOver == Tag.FinalizedState) {
         // finalized state overworld chunks
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer }
       } else if (otherDim && tagWithDim == Tag.FinalizedState) {
         // finalized state for other dimensions
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer }
       } else if (overworld && tagOver == Tag.VersionOld) {
         // version for pre 1.16.100
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer }
       } else if (otherDim && tagWithDim == Tag.VersionOld) {
         // version for pre 1.16.100
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer }
       } else if (otherDim && tagWithDim == Tag.HardCodedSpawnAreas) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer }
       } else if (overworld && tagOver == Tag.HardCodedSpawnAreas) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer }
       } else if (otherDim && tagWithDim == Tag.BiomeState) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer }
       } else if (overworld && tagOver == Tag.BiomeState) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer }
       } else if (overworld && tagOver == Tag.PendingTicks) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer }
       } else if (otherDim && tagWithDim == Tag.PendingTicks) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer }
       } else if (overworld && tagOver == Tag.Checksums) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer }
       } else if (otherDim && tagWithDim == Tag.Checksums) {
-        read = ({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer }
       }
 
       if (!read) {
-        console.log(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim, buffer.toString())
-
-        read = ({ x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer })
+        debug(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim, buffer.toString())
+        read = { x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer }
       }
     }
     let skey = String(buffer)
     if (skey.includes('VILLAGE')) {
       if (skey.includes('DWELLERS')) {
-        read = ({ type: 'village-dwellers', skey: skey, key: buffer })
+        read = { type: 'village-dwellers', skey: skey, key: buffer }
       } else if (skey.includes('INFO')) {
-        read = ({ type: 'village-info', skey: skey, key: buffer })
+        read = { type: 'village-info', skey: skey, key: buffer }
       } else if (skey.includes('POI')) {
-        read = ({ type: 'village-poi', skey: skey, key: buffer })
+        read = { type: 'village-poi', skey: skey, key: buffer }
       } else if (skey.includes('PLAYERS')) {
-        read = ({ type: 'village-players', skey: skey, key: buffer })
+        read = { type: 'village-players', skey: skey, key: buffer }
       }
     }
 
     if (!read) {
-      read = ({ type: 'unknown', skey: String(buffer), key: buffer })
+      read = { type: 'unknown', skey: String(buffer), key: buffer }
     }
 
     return read

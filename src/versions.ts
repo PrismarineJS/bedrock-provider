@@ -46,3 +46,22 @@ export function minecraftVersionToChunkVersion (version: string): number {
     '1.18.0': Version.v1_18_0
   }[version.replace('bedrock_', '')]
 }
+
+export function chunkVersionToMinecraftVersion (version: number): string {
+  if (version >= Version.v1_18_0) return '1.18.0'
+  if (version >= Version.v1_17_40) return '1.17.40'
+  if (version >= Version.v1_17_30) return '1.17.30'
+  if (version >= Version.v1_17_0) return '1.17.0'
+  // if (version >= Version.v1_16_210) return '1.16.201'
+  if (version >= Version.v1_16_210) return '1.17.0' // '1.16.220'
+  if (version >= Version.v1_16_200) return '1.16.201'
+  if (version >= Version.v1_16_1) return '1.16.1'
+  if (version >= Version.v1_16_0) return '1.16.0'
+  if (version >= Version.v1_15_1) return '1.15.1'
+  if (version >= Version.v1_15_0) return '1.15.0'
+  if (version >= Version.v1_12_0) return '1.12.0'
+  if (version >= Version.v1_11_2) return '1.11.2'
+  if (version >= Version.v1_11_1) return '1.11.1'
+  if (version >= Version.v1_11_0) return '1.11.0'
+  throw new Error(`Unknown chunk version ${version}`)
+}

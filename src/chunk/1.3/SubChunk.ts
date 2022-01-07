@@ -6,8 +6,6 @@ import { Block } from 'prismarine-block'
 import { BaseSubChunk, StorageType } from '../Chunk'
 import { getChecksum } from '../../cache/hash'
 
-const LOG = (...args) => { }
-
 export interface PaletteEntry { globalIndex: short, name: string, states: object, version: number }
 
 export default function (version, subChunkVersion) {
@@ -100,6 +98,9 @@ export default function (version, subChunkVersion) {
       for (const [globalKey] of palette) {
         map[count++] = globalKey
       }
+      if (count !== paletteSize) {
+        throw new Error(`Invalid read palette size: ${count}, expected ${paletteSize}`)
+      }
 
       for (let x = 0; x <= 0xf; x++) {
         for (let y = 0; y <= 0xf; y++) {
@@ -107,7 +108,7 @@ export default function (version, subChunkVersion) {
             const localIndex: int = bsc.getBlockStateAt(x, y, z)
             if (localIndex >= count) {
               this.blocks[storage][((x << 8) | (z << 4) | y)] = 0
-              throw Error(`bad palette size: ${localIndex} >= ${count}`)
+              throw Error(`bad palette index: ${localIndex} >= ${count}`)
             }
             this.blocks[storage][((x << 8) | (z << 4) | y)] = map[localIndex]
           }
@@ -131,22 +132,30 @@ export default function (version, subChunkVersion) {
       const buf = stream.getBuffer()
       buf.startOffset = stream.getOffset()
 
-      LOG('Stream.peek 2', stream.peek())
       while (stream.peek() === 0x0A) {
         const { parsed, metadata } = await nbt.parse(buf, overNetwork ? 'littleVarint' : 'little')
         stream.offset += metadata.size // BinaryStream
         buf.startOffset += metadata.size // Buffer
         // see A) at bottom for example schema
         const { name, states, version } = nbt.simplify(parsed)
-        const block: Block = Block.fromProperties(name.replace('minecraft:', ''), states ?? {}, version)
+        let block: Block = Block.fromProperties(name.replace('minecraft:', ''), states ?? {}, 0)
+
+        if (!block) {
+          debugger // This is not a valid block
+          block = Block.fromProperties('air', {}, 0)
+        }
+
+        if (this.palette2[storage].has(block.stateId)) {
+          throw new Error(`Duplicate block in palette: ${block.stateId}`)
+        }
+
         this.palette2[storage].set(block.stateId, { globalIndex: block.stateId, name, states, version })
         i++
       }
       delete buf.startOffset
-      LOG('Stream.peek 3', stream.peek())
 
       if (i !== length) {
-        throw Error(`Illegal palette size: expected size ${length}, got ${i}`)
+        throw new Error(`Illegal palette size: expected size ${length}, got ${i}`)
       }
     }
 
