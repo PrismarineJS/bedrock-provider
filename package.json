@@ -20,7 +20,7 @@
     "debug": "^4.3.3",
     "minecraft-data": "^2.98.0",
     "prismarine-biome": "^1.1.1",
-    "prismarine-block": "github:extremeheat/prismarine-block#bedrock",
+    "prismarine-block": "^1.11.0",
     "prismarine-nbt": "^1.5.0",
     "xxhash-wasm": "^0.4.1"
   },
