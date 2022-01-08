@@ -40,10 +40,14 @@ for (const version of versions) {
             origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
             interval: false
           })
-          await sleep(50)
+          await sleep(100)
         }
         await sleep(500)
         handle.stdin.write('save hold\n')
+        await sleep(1500)
+        handle.stdin.write('save query\n')
+        await sleep(1500)
+        handle.stdin.write('save resume\n')
         await sleep(500)
         client.close()
         await handle.kill()
