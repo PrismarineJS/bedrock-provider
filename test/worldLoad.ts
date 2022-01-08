@@ -44,12 +44,14 @@ for (const version of versions) {
         }
         await sleep(500)
         handle.stdin.write('save hold\n')
-        await sleep(1500)
+        await sleep(1000)
         handle.stdin.write('save query\n')
-        await sleep(1500)
+        await sleep(1000)
         handle.stdin.write('save resume\n')
         await sleep(500)
         client.close()
+        handle.stdin.write('stop\n')
+        await sleep(1500)
         await handle.kill()
       }
 
