@@ -6,7 +6,7 @@ import { KeyBuilder, Version, KeyData, recurseMinecraftKeys } from './databaseKe
 import MinecraftData from 'minecraft-data'
 import { IChunkColumn, StorageType } from '../chunk/Chunk'
 
-const latestVersion = <any>MinecraftData.versions.bedrock.pop()
+const latestVersion = <any>MinecraftData.versions.bedrock[MinecraftData.versions.bedrock.length - 1]
 
 export class WorldProvider {
   db: LevelDB
