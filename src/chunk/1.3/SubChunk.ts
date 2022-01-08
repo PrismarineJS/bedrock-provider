@@ -6,8 +6,6 @@ import { Block } from 'prismarine-block'
 import { BaseSubChunk, StorageType } from '../Chunk'
 import { getChecksum } from '../../cache/hash'
 
-const LOG = (...args) => { }
-
 export interface PaletteEntry { globalIndex: short, name: string, states: object, version: number }
 
 export default function (version, subChunkVersion) {
@@ -16,7 +14,7 @@ export default function (version, subChunkVersion) {
 
   return class SubChunk extends BaseSubChunk {
     columnVersion: number
-    sectionVersion: number
+
     y: number
     blocks: Uint16Array[]
     buffer?: Buffer
@@ -61,6 +59,9 @@ export default function (version, subChunkVersion) {
       let storageCount: byte = 1
       if (version >= 8) {
         storageCount = stream.readByte()
+        if (version >= 9) {
+          this.y = stream.readByte() // Sub Chunk Index
+        }
       }
       for (let i = 0; i < storageCount; i++) {
         const paletteType: byte = stream.readByte()
@@ -97,6 +98,9 @@ export default function (version, subChunkVersion) {
       for (const [globalKey] of palette) {
         map[count++] = globalKey
       }
+      if (count !== paletteSize) {
+        throw new Error(`Invalid read palette size: ${count}, expected ${paletteSize}`)
+      }
 
       for (let x = 0; x <= 0xf; x++) {
         for (let y = 0; y <= 0xf; y++) {
@@ -104,7 +108,7 @@ export default function (version, subChunkVersion) {
             const localIndex: int = bsc.getBlockStateAt(x, y, z)
             if (localIndex >= count) {
               this.blocks[storage][((x << 8) | (z << 4) | y)] = 0
-              throw Error(`bad palette size: ${localIndex} >= ${count}`)
+              throw Error(`bad palette index: ${localIndex} >= ${count}`)
             }
             this.blocks[storage][((x << 8) | (z << 4) | y)] = map[localIndex]
           }
@@ -128,28 +132,40 @@ export default function (version, subChunkVersion) {
       const buf = stream.getBuffer()
       buf.startOffset = stream.getOffset()
 
-      LOG('Stream.peek 2', stream.peek())
       while (stream.peek() === 0x0A) {
         const { parsed, metadata } = await nbt.parse(buf, overNetwork ? 'littleVarint' : 'little')
         stream.offset += metadata.size // BinaryStream
         buf.startOffset += metadata.size // Buffer
         // see A) at bottom for example schema
         const { name, states, version } = nbt.simplify(parsed)
-        const block: Block = Block.fromProperties(name.replace('minecraft:', ''), states ?? {}, version)
+        let block: Block = Block.fromProperties(name.replace('minecraft:', ''), states ?? {}, 0)
+
+        if (!block) {
+          debugger // This is not a valid block
+          block = Block.fromProperties('air', {}, 0)
+        }
+
+        if (this.palette2[storage].has(block.stateId)) {
+          throw new Error(`Duplicate block in palette: ${block.stateId}`)
+        }
+
         this.palette2[storage].set(block.stateId, { globalIndex: block.stateId, name, states, version })
         i++
       }
       delete buf.startOffset
-      LOG('Stream.peek 3', stream.peek())
 
       if (i !== length) {
-        throw Error(`Illegal palette size: expected size ${length}, got ${i}`)
+        throw new Error(`Illegal palette size: expected size ${length}, got ${i}`)
       }
     }
 
     async encode (storageFormat: StorageType, checksum = false): Promise<Buffer> {
       const stream = new Stream()
-      this.encodeV8(stream, storageFormat)
+      if (subChunkVersion >= 8) {
+        this.encodeV8(stream, storageFormat)
+      } else {
+        throw new Error('Unsupported subchunk version')
+      }
       const buf = stream.getBuffer()
       if (checksum && storageFormat === StorageType.NetworkPersistence) {
         this.hash = await getChecksum(buf)
@@ -163,14 +179,17 @@ export default function (version, subChunkVersion) {
      * @param overNetwork encode with varints
      */
     encodeV8 (stream: Stream, format: StorageType) {
-      stream.writeByte(8) // write the chunk version
-      stream.writeByte(this.blocks.length)
+      stream.writeByte(subChunkVersion) // write the sub-chunk version
+      stream.writeByte(this.blocks.length) // write how many storages
+      if (subChunkVersion >= 9) { // caves & cliffs world indexing
+        stream.writeByte(this.y)
+      }
       for (let l = 0; l < this.blocks.length; l++) {
         const palette = this.palette2[l]
         let paletteType = 0 // n >> 1 = bits per block, n & 1 = 0 for local palette
         // TODO: handle air chunks
         const palsize: int = palette.size
-        let bitsPerBlock: byte = Math.ceil(Math.log2(palsize)) | 1
+        let bitsPerBlock: byte = Math.ceil(Math.log2(palsize)) || 1
         const runtimeSerialization = format === StorageType.Runtime ? 1 : 0
 
         if (bitsPerBlock > 8) {
@@ -244,6 +263,16 @@ export default function (version, subChunkVersion) {
      */
     getPaletteEntry (l: int, x: int, y: int, z: int): PaletteEntry {
       return this.palette2[l].get(this.blocks[l][((x << 8) | (z << 4) | y)])
+    }
+
+    getBlocks () {
+      const blocks = []
+      for (const l in this.palette2) {
+        for (const block of this.palette2[l].values()) {
+          blocks.push(block)
+        }
+      }
+      return blocks
     }
 
     // EXPORT FUNCTIONS

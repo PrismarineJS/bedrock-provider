@@ -2,7 +2,14 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
 
 export class Stream extends BinaryStream {
-  offset
+  get offset () {
+    return super.offset
+  }
+
+  set offset (offset: number) {
+    super.offset = offset
+  }
+
   peek () {
     return this.buffer[this.offset]
   }

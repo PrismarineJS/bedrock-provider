@@ -3,3 +3,5 @@ js/
 __*
 package-lock.json
 *mctestdb*
+test/bds-*
+test/junk

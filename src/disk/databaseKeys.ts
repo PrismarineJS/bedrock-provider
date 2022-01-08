@@ -1,23 +1,13 @@
 import BinaryStream from '@jsprismarine/jsbinaryutils'
-
-export enum Version {
-  v9_00 = 0,
-  v9_02 = 1, // added to fix the grass color being corrupted
-  v9_05 = 2, // make sure that biomes are not corrupted
-  v17_0 = 3, // switch to a key per subchunk + 2D data
-  v18_0 = 4, // made beds be block entities
-  vConsole1_to_v18_0 = 5, // converted from another version of the game
-  v1_2_0 = 6, // Format added in MC1.2 - for upgrading structure spawners
-  v1_2_0_bis = 7, // second format added in MC1.2 - to remove dynamic water in oceans
-  v1_4_0 = 8,
-  v1_16 = 0x15
-}
+import debugLogger from 'debug'
+const debug = debugLogger('bedrock-provider')
 
 export enum Tag {
-  VersionNew = 44,
-  Data2D = 45, // height map + biomes
+  Data3D = 43, // 0x2b +
+  VersionNew = 44, // 0x2c ','
+  Data2D = 45, // 0x2d, height map + biomes
   Data2DLegacy = 46,
-  SubChunkPrefix = 47,
+  SubChunkPrefix = 47, // 0x2f (/)
   LegacyTerrain = 48,
   BlockEntity = 49,
   Entity = 50,
@@ -27,11 +17,10 @@ export enum Tag {
   FinalizedState = 54,
   BorderBlocks = 56, // Education Edition Feature
   HardCodedSpawnAreas = 57,
-  Checksums = 59,
+  Checksums = 59, // ';'
+  // ? = 64, // 0x3d (=) ??
   VersionOld = 118
 }
-
-globalThis.ckeys = []
 
 export class KeyBuilder {
   static buildChunkKey (x: int, y: byte, z: int, dimId: int) {
@@ -43,7 +32,6 @@ export class KeyBuilder {
     }
     stream.writeByte(Tag.SubChunkPrefix)
     stream.writeByte(y)
-    // globalThis.ckeys.push([x, y, z, dimId, stream.getBuffer()])
     return stream.getBuffer()
   }
 
@@ -77,6 +65,18 @@ export class KeyBuilder {
       stream.writeLInt(dimId)
     }
     stream.writeByte(Tag.Data2D)
+    return stream.getBuffer()
+  }
+
+  // Caves and cliffs+ chunks
+  static buildHeightmapAnd3DBiomeKey (x: int, z: int, dimId: int) {
+    const stream = new BinaryStream()
+    stream.writeLInt(x)
+    stream.writeLInt(z)
+    if (dimId) {
+      stream.writeLInt(dimId)
+    }
+    stream.writeByte(Tag.Data3D)
     return stream.getBuffer()
   }
 
@@ -164,7 +164,7 @@ export async function recurseMinecraftKeys (db) {
   /* eslint-disable */
   function readKey(buffer: Buffer): KeyData[] {
     let offset = 0
-    let read: KeyData[] = []
+    let read
 
     let ksize = buffer.length
     if (ksize >= 8) {
@@ -186,104 +186,100 @@ export async function recurseMinecraftKeys (db) {
 
       if (overworld && tagOver === Tag.VersionNew) {
         // Version 1.16.100+
-        read.push({ x: cx, z: cz, dim: 0, tagId: tagOver, type: 'version', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.VersionNew) {
+        read = { x: cx, z: cz, dim: 0, tagId: tagOver, type: 'version', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.VersionNew) {
         // Version
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'version', key: buffer })
-      } else if (ksize === 10 && tagOver === Tag.SubChunkPrefix) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'version', key: buffer }
+      } else if (ksize == 10 && tagOver == Tag.SubChunkPrefix) {
         // Overworld chunk with subchunk
         let cy = buffer.readInt8(1 + 8)
-        read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagOver, type: 'chunk', key: buffer })
-      } else if (ksize === 14 && tagWithDim === Tag.SubChunkPrefix) {
+        read = { x: cx, z: cz, y: cy, dim: dim, tagId: tagOver, type: 'chunk', key: buffer }
+      } else if (ksize == 14 && tagWithDim == Tag.SubChunkPrefix) {
         // let dim = buffer.readInt32LE(offset += 4)
         let cy = buffer.readInt8(1 + 8 + 4)
-        read.push({ x: cx, z: cz, y: cy, dim: dim, tagId: tagWithDim, type: 'chunk', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.Data2D) {
+        read = { x: cx, z: cz, y: cy, dim: dim, tagId: tagWithDim, type: 'chunk', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.Data2D) {
         // biomes and elevation for other dimensions
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer })
-      } else if (overworld && tagOver === Tag.Data2D) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'data2d', key: buffer }      } else if (overworld && tagOver == Tag.Data2D) {
         // biomes + elevation for overworld
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.Entity) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'data2d', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.Entity) {
         // enities for dim
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer })
-      } else if (overworld && tagOver === Tag.Entity) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'entity', key: buffer }
+      } else if (overworld && tagOver == Tag.Entity) {
         // entities for overworld
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.BlockEntity) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'entity', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.BlockEntity) {
         // block entities for dim
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer })
-      } else if (overworld && tagOver === Tag.BlockEntity) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'blockentity', key: buffer }
+      } else if (overworld && tagOver == Tag.BlockEntity) {
         // block entities for overworld
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer })
-      } else if (overworld && tagOver === Tag.FinalizedState) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'blockentity', key: buffer }
+      } else if (overworld && tagOver == Tag.FinalizedState) {
         // finalized state overworld chunks
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.FinalizedState) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'finalizedState', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.FinalizedState) {
         // finalized state for other dimensions
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer })
-      } else if (overworld && tagOver === Tag.VersionOld) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'finalizedState', key: buffer }
+      } else if (overworld && tagOver == Tag.VersionOld) {
         // version for pre 1.16.100
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.VersionOld) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'versionOld', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.VersionOld) {
         // version for pre 1.16.100
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.HardCodedSpawnAreas) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer })
-      } else if (overworld && tagOver === Tag.HardCodedSpawnAreas) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.BiomeState) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer })
-      } else if (overworld && tagOver === Tag.BiomeState) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer })
-      } else if (overworld && tagOver === Tag.PendingTicks) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.PendingTicks) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer })
-      } else if (overworld && tagOver === Tag.Checksums) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
-      } else if (otherDim && tagWithDim === Tag.Checksums) {
-        read.push({ x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer })
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'versionOld', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.HardCodedSpawnAreas) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'spawnarea', key: buffer }
+      } else if (overworld && tagOver == Tag.HardCodedSpawnAreas) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'spawanarea', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.BiomeState) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagWithDim, type: 'biomeState', key: buffer }
+      } else if (overworld && tagOver == Tag.BiomeState) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'biomeState', key: buffer }
+      } else if (overworld && tagOver == Tag.PendingTicks) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.PendingTicks) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'pendingTick', key: buffer }
+      } else if (overworld && tagOver == Tag.Checksums) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer }
+      } else if (otherDim && tagWithDim == Tag.Checksums) {
+        read = { x: cx, z: cz, dim: dim, tagId: tagOver, type: 'checksums', key: buffer }
       }
 
-      if (!read.length) {
-        console.log(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim, buffer.toString())
-
-        read.push({ x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer })
+      if (!read) {
+        debug(buffer.length, 'Failed', cx, cz, buffer[9], tagOver, tagWithDim, dim, overworld, otherDim, buffer.toString())
+        read = { x: cx, z: cz, tagId: -1, skey: String(buffer), type: `unknown / ${tagOver || ''}, ${tagWithDim || ''}`, key: buffer }
       }
     }
     let skey = String(buffer)
     if (skey.includes('VILLAGE')) {
       if (skey.includes('DWELLERS')) {
-        read.push({ type: 'village-dwellers', skey: skey, key: buffer })
+        read = { type: 'village-dwellers', skey: skey, key: buffer }
       } else if (skey.includes('INFO')) {
-        read.push({ type: 'village-info', skey: skey, key: buffer })
+        read = { type: 'village-info', skey: skey, key: buffer }
       } else if (skey.includes('POI')) {
-        read.push({ type: 'village-poi', skey: skey, key: buffer })
+        read = { type: 'village-poi', skey: skey, key: buffer }
       } else if (skey.includes('PLAYERS')) {
-        read.push({ type: 'village-players', skey: skey, key: buffer })
+        read = { type: 'village-players', skey: skey, key: buffer }
       }
     }
 
-    if (!read.length) {
-      read.push({ type: 'unknown', skey: String(buffer), key: buffer })
+    if (!read) {
+      read = { type: 'unknown', skey: String(buffer), key: buffer }
     }
 
     return read
   }
 
   if (!db || !db.isOpen()) {
-    return []
+    throw new Error('No database open')
   }
 
   const out = []
 
-  const iter = db.getIterator({ values: true })
-  let entry = null
-  while (entry = await iter.next()) { // eslint-disable-line
-    const read = readKey(entry[0])
+  for await (const [key] of db.getIterator({ values: true })) {
+    const read = readKey(key)
     out.push(read)
   }
-  await iter.end()
+
   return out
 }
