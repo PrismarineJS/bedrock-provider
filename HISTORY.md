@@ -1,3 +1,6 @@
+## 2.1.0
+* Add bedrock 1.17.30 and 1.18 level support
+
 ## 2.0
 * (Breaking) New API, see README.md
 
