@@ -15,6 +15,8 @@ export = function (version: string, mcData) {
   const SubChunk = subchunk(version, defaultChunkVersion >= Version.v1_17_30 ? 9 : 8)
   type SubChunk = InstanceType<typeof SubChunk>
   const Biome = PrismarineBiome(version)
+  const Block = require('prismarine-block')(version)
+  
   return class ChunkColumn {
     x: number; z: number
     chunkVersion: number
@@ -55,6 +57,7 @@ export = function (version: string, mcData) {
     getBlock (vec4: Vec4): Block {
       const Y = vec4.y >> 4
       const sec = this.sections[this.co + Y]
+      if (!sec) return Block.fromStateId(mcData.blocksByName.air.defaultState, 0)
       return sec.getBlock(vec4.l, vec4.x, vec4.y & 0xf, vec4.z)
     }
 
