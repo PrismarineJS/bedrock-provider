@@ -22,17 +22,18 @@
     "prismarine-biome": "^1.1.1",
     "prismarine-block": "^1.11.0",
     "prismarine-nbt": "^2.0.0",
+    "prismarine-registry": "^1.1.0",
     "vec3": "^0.1.7",
     "xxhash-wasm": "^0.4.1"
   },
   "devDependencies": {
     "@types/mocha": "^9.0.0",
     "@types/node": "^14.14.19",
-    "bedrock-protocol": "^3.8.0",
+    "bedrock-protocol": "^3.9.0",
     "bedrock-provider": "file:./",
     "leveldb-zlib": "^1.0.0",
     "minecraft-bedrock-server": "^1.1.0",
-    "mocha": "^9.1.3",
+    "mocha": "^9.2.0",
     "ts-node": "^9.1.1",
     "ts-standard": "^10.0.0",
     "typescript": "^4.2.4"
