@@ -16,7 +16,7 @@ export = function (version: string, mcData) {
   type SubChunk = InstanceType<typeof SubChunk>
   const Biome = PrismarineBiome(version)
   const Block = require('prismarine-block')(version)
-  
+
   return class ChunkColumn {
     x: number; z: number
     chunkVersion: number

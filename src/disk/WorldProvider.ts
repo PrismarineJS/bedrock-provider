@@ -1,6 +1,5 @@
 import type { LevelDB } from 'leveldb-zlib'
 import NBT from 'prismarine-nbt'
-import { Stream } from '../Stream'
 import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
 import { IChunkColumn, StorageType } from '../chunk/Chunk'
 import { Version, chunkVersionToMinecraftVersion } from '../versions'
@@ -40,19 +39,19 @@ export class WorldProvider {
 
   hasChunk = async (x, z) => !!await this.getChunkVersion(x, z)
 
-  async readSubChunks (x, z, version?) {
+  async readSubChunks (x: int, z: int, version?) {
     const ver = version || await this.getChunkVersion(x, z)
     const mcVer = chunkVersionToMinecraftVersion(ver)
     const ChunkColumn = getChunk(mcVer)
 
     if (ChunkColumn) {
-      const cc = new ChunkColumn(x, z, ver)
-      const minY = ver >= Version.v1_17_30 ? cc.minY : 0
-      for (let y = minY; y < cc.maxY; y++) {
+      const cc = new ChunkColumn({ x, z, chunkVersion: ver })
+      console.log('Reading subchunks for chunk', x, z, 'version', ver, cc.minCY, cc.maxCY)
+      for (let y = cc.minCY; y < cc.maxCY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
+        // console.log('Read chunk', x, y, z, chunk)
         if (!chunk) break
-        const subchunk = cc.newSection(y)
-        await subchunk.decode(StorageType.LocalPersistence, new Stream(chunk))
+        await cc.newSection(y, StorageType.LocalPersistence as int, chunk)
       }
       return cc
     }
@@ -160,19 +159,21 @@ export class WorldProvider {
   async load (x: number, z: number, full: boolean) {
     const cver = await this.getChunkVersion(x, z)
 
+    console.log(`Loading chunk ${x}, ${z} with version ${cver}`)
     if (cver) {
       const column = await this.readSubChunks(x, z, cver)
+      // console.log('Column', column)
       if (full) {
         const tiles = await this.readBlockEntities(x, z, cver)
-        column.entities = await this.readEntities(x, z, cver)
+        column.loadEntities(await this.readEntities(x, z, cver))
         tiles.forEach(tile => column.addBlockEntity(tile))
         const data = await this.readBiomesAndElevation(x, z, cver)
 
         column.loadHeights(new Uint16Array(data.heightmap))
         if (data.biomes2d) {
-          column.loadLegacyBiomes(new Stream(data.biomes2d))
+          column.loadLegacyBiomes(data.biomes2d)
         } else if (data.biomes3d) {
-          column.loadBiomes(new Stream(data.biomes3d), StorageType.LocalPersistence)
+          column.loadBiomes(data.biomes3d, StorageType.LocalPersistence as number)
         }
       }
 
