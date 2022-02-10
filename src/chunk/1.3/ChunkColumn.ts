@@ -14,6 +14,7 @@ export = function (version: string, mcData) {
   const defaultChunkVersion = minecraftVersionToChunkVersion(version)
   const SubChunk = subchunk(version, defaultChunkVersion >= Version.v1_17_30 ? 9 : 8)
   type SubChunk = InstanceType<typeof SubChunk>
+  // @ts-ignore
   const Biome = PrismarineBiome(version)
   const Block = require('prismarine-block')(version)
 

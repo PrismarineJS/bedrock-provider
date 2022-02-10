@@ -1,6 +1,6 @@
 import column13 from './1.3/ChunkColumn'
 import PrismarineRegistry from 'prismarine-registry'
-import PrismarineChunk, { BedrockChunk } from 'prismarine-chunk'
+import PrismarineChunk, { type BedrockChunk } from 'prismarine-chunk'
 
 const columns = {
   1.3: column13

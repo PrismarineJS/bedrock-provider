@@ -13,7 +13,6 @@ import fs from 'fs'
 import BlobStore from './util/BlobStore'
 const { setTimeout: sleep } = require('timers/promises')
 
-
 const versions = ['1.16.220', '1.17.10', '1.18.0']
 // const versions = []
 for (const version of versions) {
@@ -22,14 +21,14 @@ for (const version of versions) {
     const registry = PrismarineRegistry('bedrock_' + version)
     const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
     it('can load from network', async function () {
-      // console.log('./bds-' + version)
-      const needToStartServer = !fs.existsSync('./bds-' + version) || true
+      // Remove the true part for faster testing (only test disk, not network)
+      const needToStartServer = !fs.existsSync('./bds-' + version) || false
 
       const blobStore = new BlobStore()
 
       if (needToStartServer) {
         const port = 19132 + Math.floor(Math.random() * 1000)
-        // console.log('Server port', port)
+        console.log('Server ran on port', port)
         const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
 
         async function connect(cachingEnabled) {
@@ -53,13 +52,11 @@ for (const version of versions) {
           let gotMiss = false
 
           async function processLevelChunk(packet) {
-            // console.log('Client got level_chunk', packet)
             const cc = new ChunkColumn({ x: packet.x, z: packet.z })
             if (!cachingEnabled) {
               await cc.networkDecodeNoCache(packet.payload, packet.sub_chunk_count)
             } else if (cachingEnabled) {
               const misses = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
-              // console.log('MISSes', misses.map(e => e.valueOf().toString()))
               if (!packet.blobs.hashes.length) return // no blobs
 
               client.queue('client_cache_blob_status', {
@@ -78,9 +75,7 @@ for (const version of versions) {
                 }
                 sentMiss = true
 
-                // console.log('Pending chunks/biomes', packet.x, packet.z, packet.blobs.hashes.length, packet.blobs.hashes)
                 blobStore.once(misses, async () => {
-                  // console.log('Got all blobs for chunk', packet.x, packet.z)
                   // The things we were missing have now arrived
                   const now = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
                   assert.strictEqual(now.length, 0)
@@ -99,7 +94,7 @@ for (const version of versions) {
 
             if (packet.sub_chunk_count === -1) { // 1.18.0
               // 1.18+ handling, we need to send a SubChunk request
-              if (false && registry.version['>=']('1.18.10')) {
+              if (registry.version['>=']('1.18.11')) {
                 throw new Error('Not yet supported')
               } else if (registry.version['>=']('1.18')) {
                 client.queue('subchunk_request', { x: packet.x, z: packet.z, y: 0 })
@@ -134,7 +129,7 @@ for (const version of versions) {
                     have: [],
                     missing: subChunkMissHashes
                   }
-                  // console.log('Requesting missing chunks ', r)
+
                   client.queue('client_cache_blob_status', r)
                   subChunkMissHashes = []
                 }
@@ -142,13 +137,10 @@ for (const version of versions) {
                 if (misses.length) {
                   const [missed] = misses
                   // Once we get this blob, try again
-                  // console.log('Listening', missed.toString())
 
                   blobStore.once([missed], async () => {
                     gotMiss = true
-                    // console.log('Got a MISSed packet', missed)
                     const misses = await cc.networkDecodeSubChunk([missed], blobStore, packet.data)
-                    // console.log('Miss?', misses, blobStore)
                     assert(!misses.length, 'Should not have missed anything')
                   })
                 }
@@ -157,13 +149,10 @@ for (const version of versions) {
           }
 
           async function processCacheMiss(packet) {
-            // console.log('Got MISS response', packet)
             const acks = []
             for (const { hash, payload } of packet.blobs) {
               const name = hash.toString()
               blobStore.updatePending(name, { buffer: payload })
-
-              client.emit(hash.toString())
               acks.push(hash)
             }
 
@@ -179,6 +168,19 @@ for (const version of versions) {
           client.on('level_chunk', processLevelChunk)
           client.on('subchunk', processSubChunk)
           client.on('client_cache_miss_response', processCacheMiss)
+
+          fs.mkdirSync(`fixtures/${version}/`, { recursive: true })
+          client.on('packet', ({ data: { name, params }, fullBuffer }) => {
+            if (name === 'level_chunk') {
+              fs.promises.writeFile(`fixtures/${version}/level_chunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z}.bin`, fullBuffer)
+            } else if (name === 'subchunk') {
+              fs.promises.writeFile(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x}-${params.y},${params.z}.bin`, fullBuffer)
+            }
+            if (name === 'client_cache_miss_response') {
+              if (!params.blobs.length) return
+              fs.promises.writeFile(`fixtures/${version}/cache_miss_response ${params.x},${params.y},${params.z}.bin`, fullBuffer)
+            }
+          })
 
           console.log('Client awaiting spawn')
           await once(client, 'spawn')
