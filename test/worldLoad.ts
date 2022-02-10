@@ -10,40 +10,14 @@ import assert from 'assert'
 import { join } from 'path'
 
 import fs from 'fs'
+import BlobStore from './util/BlobStore'
 const { setTimeout: sleep } = require('timers/promises')
 
-const tests = []
-
-// function it(name, fn) {
-//   tests.push([name, fn])
-// }
-
-// async function describe(name, fn) {
-//   console.log('🔨 -----------  \x1b[34m', name, '\x1b[0m', '-----------')
-//   console.log('Fn', fn, fn.timeout)
-//   await fn.call({
-//     timeout(ms) {
-//       console.log('Set timeout to ', ms)
-//     }
-//   })
-//   for (const [name, itFn] of tests) {
-//     console.log('  ↘️ \x1b[1m', name, '\x1b[0m')
-//     let resolve, reject
-//     const startTime = Date.now()
-//     const cbPromise = new Promise((res, rej) => { resolve = res; reject = rej; })
-//     const retPromise = itFn(resolve)
-//     const res = await Promise.race([cbPromise, retPromise])
-//     const endTime = Date.now()
-//     console.log('  ✅ \x1b[32m', name, '\x1b[0m', endTime - startTime, 'ms')
-//     // console.log('Ret res', res)
-//   }
-// }
 
 const versions = ['1.16.220', '1.17.10', '1.18.0']
 // const versions = []
 for (const version of versions) {
   describe('new world in ' + version, function () {
-    // console.log('this', this)
     this.timeout(120 * 1000)
     const registry = PrismarineRegistry('bedrock_' + version)
     const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
@@ -51,51 +25,7 @@ for (const version of versions) {
       // console.log('./bds-' + version)
       const needToStartServer = !fs.existsSync('./bds-' + version) || true
 
-      const blobStore = new class extends Map {
-        pending = {}
-        wanted = []
-
-        set(key, value) {
-          const ret = super.set(key.toString(), value)
-          this.wanted.forEach(wanted => wanted[0] = wanted[0].filter(hash => hash.toString() !== key.toString()))
-          for (const [outstandingBlobs, cb] of this.wanted) {
-            if (!outstandingBlobs.length) {
-              cb()
-            }
-          }
-          return ret
-        }
-
-        get(key) { return super.get(key.toString()) }
-        has(key) { return super.has(key.toString()) }
-
-        addPending(hash, blob) {
-          this.pending[hash.toString()] = blob
-        }
-
-        updatePending(hash, value) {
-          const name = hash.toString()
-          if (this.pending[name]) {
-            this.set(name, Object.assign(this.pending[name], value))
-          } else {
-            throw new Error('No pending blob for hash ' + name)
-          }
-          // todo: remove from pending
-        }
-
-        once(wantedBlobs, cb) {
-          const outstanding = []
-          for (const wanted of wantedBlobs) {
-            if (!this.has(wanted)) outstanding.push(wanted)
-          }
-
-          if (outstanding.length) {
-            this.wanted.push([outstanding, cb])
-          } else {
-            cb()
-          }
-        }
-      }
+      const blobStore = new BlobStore()
 
       if (needToStartServer) {
         const port = 19132 + Math.floor(Math.random() * 1000)
@@ -116,8 +46,8 @@ for (const version of versions) {
             client.queue('client_cache_status', { enabled: cachingEnabled })
           })
 
+          // this would go in pworld
           const ccs = {}
-          let total = []
           let subChunkMissHashes = []
           let sentMiss = false
           let gotMiss = false
@@ -146,7 +76,6 @@ for (const version of versions) {
                 for (const miss of misses) {
                   blobStore.addPending(miss, new BlobEntry({ type: miss === lastBlob ? BlobType.Biomes : BlobType.ChunkSection, x: packet.x, z: packet.z }))
                 }
-
                 sentMiss = true
 
                 // console.log('Pending chunks/biomes', packet.x, packet.z, packet.blobs.hashes.length, packet.blobs.hashes)
@@ -166,9 +95,6 @@ for (const version of versions) {
                   gotMiss = true
                 })
               }
-
-              total.push(...misses.map(e => e.valueOf().toString()))
-              // process.exit(1)
             }
 
             if (packet.sub_chunk_count === -1) { // 1.18.0
@@ -194,7 +120,6 @@ for (const version of versions) {
                 await cc.networkDecodeSubChunkNoCache(packet.y, packet.data)
               } else {
                 const misses = await cc.networkDecodeSubChunk([packet.blob_id], blobStore, packet.data)
-                // console.log('MISSes', misses.map(v => v.valueOf()), subChunkMissHashes.length)
                 subChunkMissHashes.push(...misses)
 
                 for (const miss of misses) {
@@ -211,7 +136,6 @@ for (const version of versions) {
                   }
                   // console.log('Requesting missing chunks ', r)
                   client.queue('client_cache_blob_status', r)
-                  total.push(...subChunkMissHashes.map(v => v.toString()))
                   subChunkMissHashes = []
                 }
 
@@ -219,7 +143,8 @@ for (const version of versions) {
                   const [missed] = misses
                   // Once we get this blob, try again
                   // console.log('Listening', missed.toString())
-                  client.on(missed.toString(), async () => {
+
+                  blobStore.once([missed], async () => {
                     gotMiss = true
                     // console.log('Got a MISSed packet', missed)
                     const misses = await cc.networkDecodeSubChunk([missed], blobStore, packet.data)
@@ -238,10 +163,6 @@ for (const version of versions) {
               const name = hash.toString()
               blobStore.updatePending(name, { buffer: payload })
 
-              // console.log('Emitting', name)
-              if (!total.includes(name)) {
-                throw new Error('Got a cache miss for a chunk we didnt request')
-              }
               client.emit(hash.toString())
               acks.push(hash)
             }
@@ -258,15 +179,6 @@ for (const version of versions) {
           client.on('level_chunk', processLevelChunk)
           client.on('subchunk', processSubChunk)
           client.on('client_cache_miss_response', processCacheMiss)
-
-          // setInterval(() => {
-          //   client.queue('client_cache_blob_status', {
-          //     misses: 0,
-          //     haves: total.length,
-          //     have: total.map(BigInt),
-          //     missing: []
-          //   })
-          // },500)
 
           console.log('Client awaiting spawn')
           await once(client, 'spawn')
@@ -290,16 +202,16 @@ for (const version of versions) {
           await sleep(500)
           client.close()
 
-          assert(sentMiss, 'Should have sent a MISS')
-          assert(gotMiss, 'Should have got a MISS response')
+          if (cachingEnabled) {
+            assert(sentMiss, 'Should have sent a MISS')
+            assert(gotMiss, 'Should have got a MISS response')
+          }
         }
 
-        // await connect(false)
+        await connect(false)
+        console.log('✅ Without caching')
         await connect(true)
-
-        // it('works with a cache', async function () {
-        //   await connect(true)
-        // })
+        console.log('✅ With caching')
 
         handle.stdin.write('stop\n')
         await sleep(1500)
@@ -314,15 +226,12 @@ for (const version of versions) {
 
       let max = 10
       let foundStone = false
-      // console.log('Running')
       const keys = await wp.getKeys()
-      // console.log(keys)
       let seenChunks = 0
 
       for (const key of keys) {
         if (max <= 0) break
         if (key.type === 'chunk') {
-          // console.log('Reading chunk at', key.x, key.z)
           const chunk = await wp.getChunk(key.x, key.z)
           seenChunks++
           ok:
@@ -330,9 +239,7 @@ for (const version of versions) {
             for (let z = 0; z <= 16; z++) {
               for (let y = chunk.minCY; y <= chunk.maxCY; y++) {
                 const block = chunk.getBlock({ x, y, z })
-                // console.log('Block', block.name)
                 if (block.name.includes('stone')) {
-                  // console.log('Found stone at', x, y, z, block)
                   foundStone = true
                   break ok
                 }
@@ -347,7 +254,6 @@ for (const version of versions) {
       }
 
       assert(foundStone, 'Did not find stone')
-      // console.log('Seen chunks', seenChunks)
     })
   })
 }
