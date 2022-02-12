@@ -14,15 +14,18 @@ import BlobStore from './util/BlobStore'
 const { setTimeout: sleep } = require('timers/promises')
 
 const versions = ['1.16.220', '1.17.10', '1.18.0']
-// const versions = []
+// const versions = ['1.18.0']
 for (const version of versions) {
   describe('new world in ' + version, function () {
     this.timeout(120 * 1000)
     const registry = PrismarineRegistry('bedrock_' + version)
     const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
+
+    let chunksWithCaching, chunksWithoutCaching
+
     it('can load from network', async function () {
       // Remove the true part for faster testing (only test disk, not network)
-      const needToStartServer = !fs.existsSync('./bds-' + version) || false
+      const needToStartServer = !fs.existsSync('./bds-' + version) || true
 
       const blobStore = new BlobStore()
 
@@ -78,6 +81,10 @@ for (const version of versions) {
                 blobStore.once(misses, async () => {
                   // The things we were missing have now arrived
                   const now = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
+                  fs.promises.writeFile(
+                    `fixtures/${version}/level_chunk CacheMissResponse ${packet.x},${packet.y},${packet.z}.json`,
+                    JSON.stringify({ blobs: packet.blobs.hashes.map(h => blobStore.get(h).buffer), payload: packet.payload })
+                  )
                   assert.strictEqual(now.length, 0)
 
                   client.queue('client_cache_blob_status', {
@@ -97,7 +104,9 @@ for (const version of versions) {
               if (registry.version['>=']('1.18.11')) {
                 throw new Error('Not yet supported')
               } else if (registry.version['>=']('1.18')) {
-                client.queue('subchunk_request', { x: packet.x, z: packet.z, y: 0 })
+                for (let i = 1; i < 5; i++) {
+                  client.queue('subchunk_request', { x: packet.x, z: packet.z, y: i })
+                }
               }
             }
 
@@ -105,7 +114,7 @@ for (const version of versions) {
           }
 
           async function processSubChunk(packet) {
-            // console.log('Client got subchunk', packet)
+            // console.log('Client got subchunk', packet.data)
             const cc = ccs[packet.x + ',' + packet.z]
 
             if (packet.entries) { // 1.18.10+ handling
@@ -140,7 +149,12 @@ for (const version of versions) {
 
                   blobStore.once([missed], async () => {
                     gotMiss = true
-                    const misses = await cc.networkDecodeSubChunk([missed], blobStore, packet.data)
+                    fs.promises.writeFile(
+                      `fixtures/${version}/subchunk CacheMissResponse ${packet.x},${packet.y},${packet.z}.json`,
+                      JSON.stringify({ blobs: blobStore.get(missed).buffer, payload: packet.data })
+                    )
+                    // Call this again, ignore the payload since that's already been decoded
+                    const misses = await cc.networkDecodeSubChunk([missed], blobStore)
                     assert(!misses.length, 'Should not have missed anything')
                   })
                 }
@@ -187,26 +201,34 @@ for (const version of versions) {
           console.log('Client spawned')
           handle.stdin.write('op test\ngamemode creative @a\n')
           await sleep(100)
-          for (let i = 0; i < 10; i++) {
-            client.write('command_request', {
-              command: `/setblock ~2 ~10 ~${i} minecraft:diamond_block`,
-              origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
-              interval: false
-            })
-            await sleep(100)
-          }
+          // Set a block entity
+          client.write('command_request', {
+            command: `/setblock ~2 10 ~ minecraft:barrel`,
+            origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
+            interval: false
+          })
+          await sleep(500)
+          // // Set a normal block
+          client.write('command_request', {
+            command: `/setblock ~2 ~10 ~ minecraft:diamond_block`,
+            origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
+            interval: false
+          })
           await sleep(500)
           handle.stdin.write('save hold\n')
           await sleep(1000)
           handle.stdin.write('save query\n')
           await sleep(1000)
-          handle.stdin.write('save resume\n')
-          await sleep(500)
+          // handle.stdin.write('save resume\n')
+          // await sleep(500)
           client.close()
 
           if (cachingEnabled) {
             assert(sentMiss, 'Should have sent a MISS')
             assert(gotMiss, 'Should have got a MISS response')
+            chunksWithCaching = ccs
+          } else {
+            chunksWithoutCaching = ccs
           }
         }
 
@@ -218,6 +240,21 @@ for (const version of versions) {
         handle.stdin.write('stop\n')
         await sleep(1500)
         await handle.kill()
+      }
+    })
+
+    it('loaded at least one chunk with block entities inside', async function () {
+      for (const [k, columns] of Object.entries({ cached: chunksWithCaching, uncached: chunksWithoutCaching })) {
+        if (!columns) continue
+        let has = false
+        for (const key in columns) {
+          const column = columns[key]
+          if (Object.values(column.blockEntities).length > 0) {
+            console.log('Found a column with block entities at', key)
+            has = true
+          }
+        }
+        assert(has, 'Block entity column not found with ' + k)
       }
     })
 
