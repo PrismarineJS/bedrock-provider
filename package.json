@@ -8,7 +8,7 @@
     "build": "tsc",
     "lint": "ts-standard",
     "fix": "ts-standard --fix",
-    "test": "tsc && mocha --bail --require ts-node/register test/*.ts"
+    "test": "tsc && mocha --bail --require ts-node/register test/*.ts --exit"
   },
   "author": "extrmeheat",
   "repository": {
@@ -24,6 +24,7 @@
     "prismarine-nbt": "^2.0.0",
     "prismarine-registry": "^1.1.0",
     "prismarine-chunk": "extremeheat/prismarine-chunk#bed",
+    "protodef": "extremeheat/protodef#patch-2",
     "vec3": "^0.1.7",
     "xxhash-wasm": "^0.4.1"
   },
