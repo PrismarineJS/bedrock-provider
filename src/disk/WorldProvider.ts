@@ -156,10 +156,9 @@ export class WorldProvider {
    * @param z position of chunk
    * @param full include entities, tiles, height map and biomes
    */
-  async load (x: number, z: number, full: boolean) {
+  async load (x: number, z: number, full: boolean = true) {
     const cver = await this.getChunkVersion(x, z)
 
-    console.log(`Loading chunk ${x}, ${z} with version ${cver}`)
     if (cver) {
       const column = await this.readSubChunks(x, z, cver)
       // console.log('Column', column)

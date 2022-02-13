@@ -5,16 +5,23 @@ class BlobStore extends Map {
   set(key, value) {
     const ret = super.set(key.toString(), value)
     this.wanted.forEach(wanted => wanted[0] = wanted[0].filter(hash => hash.toString() !== key.toString()))
-    for (const [outstandingBlobs, cb] of this.wanted) {
+    for (const i in this.wanted) {
+      const [outstandingBlobs, cb] = this.wanted[i]
       if (!outstandingBlobs.length) {
         cb()
+        delete this.wanted[i]
       }
     }
     return ret
   }
 
-  get(key) { return super.get(key.toString()) }
-  has(key) { return super.has(key.toString()) }
+  get(key) { 
+    return super.get(key.toString())
+  }
+
+  has(key) {
+    return super.has(key.toString())
+  }
 
   addPending(hash, blob) {
     this.pending[hash.toString()] = blob

@@ -3,8 +3,7 @@ import { WorldProvider } from 'bedrock-provider'
 import bp from 'bedrock-protocol'
 import bedrockServer from 'minecraft-bedrock-server'
 import PrismarineRegistry from 'prismarine-registry'
-import PrismarineChunk, { BedrockChunk } from 'prismarine-chunk'
-import { BlobEntry, BlobType } from 'prismarine-chunk/src/bedrock/common/BlobCache'
+import PrismarineChunk, { BedrockChunk, BlobEntry, BlobType } from 'prismarine-chunk'
 import { once } from 'events'
 import assert from 'assert'
 import { join } from 'path'
@@ -13,11 +12,13 @@ import fs from 'fs'
 import BlobStore from './util/BlobStore'
 const { setTimeout: sleep } = require('timers/promises')
 
+const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() === 'bigint' ? v.toString() : v)
+
 const versions = ['1.16.220', '1.17.10', '1.18.0']
-// const versions = ['1.18.0']
+
 for (const version of versions) {
   describe('new world in ' + version, function () {
-    this.timeout(120 * 1000)
+    this.timeout(160 * 1000)
     const registry = PrismarineRegistry('bedrock_' + version)
     const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
 
@@ -77,26 +78,26 @@ for (const version of versions) {
                   blobStore.addPending(miss, new BlobEntry({ type: miss === lastBlob ? BlobType.Biomes : BlobType.ChunkSection, x: packet.x, z: packet.z }))
                 }
                 sentMiss = true
-
-                blobStore.once(misses, async () => {
-                  // The things we were missing have now arrived
-                  const now = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
-                  fs.promises.writeFile(
-                    `fixtures/${version}/level_chunk CacheMissResponse ${packet.x},${packet.y},${packet.z}.json`,
-                    JSON.stringify({ blobs: packet.blobs.hashes.map(h => blobStore.get(h).buffer), payload: packet.payload })
-                  )
-                  assert.strictEqual(now.length, 0)
-
-                  client.queue('client_cache_blob_status', {
-                    misses: 0,
-                    haves: packet.blobs.hashes.length,
-                    have: packet.blobs.hashes,
-                    missing: []
-                  })
-
-                  gotMiss = true
-                })
               }
+
+              blobStore.once(misses, async () => {
+                // The things we were missing have now arrived
+                const now = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
+                fs.writeFileSync(
+                  `fixtures/${version}/level_chunk CacheMissResponse ${packet.x},${packet.z},${packet.y}.json`,
+                  serialize({ blobs: packet.blobs.hashes.map(h => blobStore.get(h).buffer), payload: packet.payload })
+                )
+                assert.strictEqual(now.length, 0)
+
+                client.queue('client_cache_blob_status', {
+                  misses: 0,
+                  haves: packet.blobs.hashes.length,
+                  have: packet.blobs.hashes,
+                  missing: []
+                })
+
+                gotMiss = true
+              })
             }
 
             if (packet.sub_chunk_count === -1) { // 1.18.0
@@ -149,9 +150,9 @@ for (const version of versions) {
 
                   blobStore.once([missed], async () => {
                     gotMiss = true
-                    fs.promises.writeFile(
-                      `fixtures/${version}/subchunk CacheMissResponse ${packet.x},${packet.y},${packet.z}.json`,
-                      JSON.stringify({ blobs: blobStore.get(missed).buffer, payload: packet.data })
+                    fs.writeFileSync(
+                      `fixtures/${version}/subchunk CacheMissResponse ${packet.x},${packet.z},${packet.y}.json`,
+                      serialize({ blobs: blobStore.get(missed).buffer, payload: packet.data })
                     )
                     // Call this again, ignore the payload since that's already been decoded
                     const misses = await cc.networkDecodeSubChunk([missed], blobStore)
@@ -183,16 +184,12 @@ for (const version of versions) {
           client.on('subchunk', processSubChunk)
           client.on('client_cache_miss_response', processCacheMiss)
 
-          fs.mkdirSync(`fixtures/${version}/`, { recursive: true })
+          fs.mkdirSync(`fixtures/${version}/pchunk`, { recursive: true })
           client.on('packet', ({ data: { name, params }, fullBuffer }) => {
             if (name === 'level_chunk') {
-              fs.promises.writeFile(`fixtures/${version}/level_chunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z}.bin`, fullBuffer)
+              fs.writeFileSync(`fixtures/${version}/level_chunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z}.json`, serialize(params))
             } else if (name === 'subchunk') {
-              fs.promises.writeFile(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x}-${params.y},${params.z}.bin`, fullBuffer)
-            }
-            if (name === 'client_cache_miss_response') {
-              if (!params.blobs.length) return
-              fs.promises.writeFile(`fixtures/${version}/cache_miss_response ${params.x},${params.y},${params.z}.bin`, fullBuffer)
+              fs.writeFileSync(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z},${params.y}.json`, serialize(params))
             }
           })
 
@@ -244,6 +241,7 @@ for (const version of versions) {
     })
 
     it('loaded at least one chunk with block entities inside', async function () {
+      const fixtureFiles = fs.readdirSync(`fixtures/${version}/`)
       for (const [k, columns] of Object.entries({ cached: chunksWithCaching, uncached: chunksWithoutCaching })) {
         if (!columns) continue
         let has = false
@@ -252,6 +250,12 @@ for (const version of versions) {
           if (Object.values(column.blockEntities).length > 0) {
             console.log('Found a column with block entities at', key)
             has = true
+            // Copy over this test file into "pchunk" folder that can be used to test prismarine-chunk
+            for (const fixFile of fixtureFiles) {
+              if (fixFile.includes(key)) {
+                fs.copyFileSync(`fixtures/${version}/${fixFile}`, `fixtures/${version}/pchunk/${fixFile}`)
+              }
+            }
           }
         }
         assert(has, 'Block entity column not found with ' + k)
