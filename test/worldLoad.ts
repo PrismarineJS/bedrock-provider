@@ -85,7 +85,7 @@ for (const version of versions) {
                 const now = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
                 fs.writeFileSync(
                   `fixtures/${version}/level_chunk CacheMissResponse ${packet.x},${packet.z},${packet.y}.json`,
-                  serialize({ blobs: packet.blobs.hashes.map(h => blobStore.get(h).buffer), payload: packet.payload })
+                  serialize({ blobs: Object.fromEntries(packet.blobs.hashes.map(h => [h.toString(), blobStore.get(h).buffer])) })
                 )
                 assert.strictEqual(now.length, 0)
 
@@ -152,7 +152,7 @@ for (const version of versions) {
                     gotMiss = true
                     fs.writeFileSync(
                       `fixtures/${version}/subchunk CacheMissResponse ${packet.x},${packet.z},${packet.y}.json`,
-                      serialize({ blobs: blobStore.get(missed).buffer, payload: packet.data })
+                      serialize({ blobs: Object.fromEntries([[missed.toString(), blobStore.get(missed).buffer]]) })
                     )
                     // Call this again, ignore the payload since that's already been decoded
                     const misses = await cc.networkDecodeSubChunk([missed], blobStore)
@@ -229,8 +229,8 @@ for (const version of versions) {
           }
         }
 
-        await connect(false)
-        console.log('✅ Without caching')
+        // await connect(false)
+        // console.log('✅ Without caching')
         await connect(true)
         console.log('✅ With caching')
 
@@ -249,6 +249,11 @@ for (const version of versions) {
           const column = columns[key]
           if (Object.values(column.blockEntities).length > 0) {
             console.log('Found a column with block entities at', key)
+            for (let i = -4; i < 16; i++) {
+              if (column.getSectionBlockEntities(i).length) {
+                console.log('=> section with block entities at y=', i)
+              }
+            }
             has = true
             // Copy over this test file into "pchunk" folder that can be used to test prismarine-chunk
             for (const fixFile of fixtureFiles) {
