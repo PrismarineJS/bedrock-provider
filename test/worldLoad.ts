@@ -84,7 +84,7 @@ for (const version of versions) {
                 // The things we were missing have now arrived
                 const now = await cc.networkDecode(packet.blobs.hashes, blobStore, packet.payload)
                 fs.writeFileSync(
-                  `fixtures/${version}/level_chunk CacheMissResponse ${packet.x},${packet.z},${packet.y}.json`,
+                  `fixtures/${version}/level_chunk CacheMissResponse ${packet.x},${packet.z}.json`,
                   serialize({ blobs: Object.fromEntries(packet.blobs.hashes.map(h => [h.toString(), blobStore.get(h).buffer])) })
                 )
                 assert.strictEqual(now.length, 0)
@@ -229,8 +229,8 @@ for (const version of versions) {
           }
         }
 
-        // await connect(false)
-        // console.log('✅ Without caching')
+        await connect(false)
+        console.log('✅ Without caching')
         await connect(true)
         console.log('✅ With caching')
 
