@@ -4,7 +4,6 @@
   "description": "Minecraft Bedrock edition chunk provider",
   "main": "./js/index.js",
   "scripts": {
-    "prepare": "npm run build",
     "build": "tsc",
     "lint": "ts-standard",
     "fix": "ts-standard --fix",
@@ -17,7 +16,6 @@
   "license": "MIT",
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
-    "debug": "^4.3.3",
     "minecraft-data": "^2.104.0",
     "prismarine-biome": "^1.1.1",
     "prismarine-block": "^1.11.0",
@@ -36,6 +34,7 @@
     "leveldb-zlib": "^1.0.0",
     "minecraft-bedrock-server": "^1.1.0",
     "mocha": "^9.2.0",
+    "prismarine-world": "^3.6.0",
     "ts-node": "^9.1.1",
     "ts-standard": "^10.0.0",
     "typescript": "^4.2.4"

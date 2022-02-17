@@ -17,16 +17,16 @@ const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() ===
 const versions = ['1.16.220', '1.17.10', '1.18.0']
 
 for (const version of versions) {
-  describe('new world in ' + version, function () {
-    this.timeout(160 * 1000)
-    const registry = PrismarineRegistry('bedrock_' + version)
-    const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
+  const registry = PrismarineRegistry('bedrock_' + version)
+  const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
 
+  describe('loads over network ' + version, function () {
+    this.timeout(160 * 1000)
     let chunksWithCaching, chunksWithoutCaching
 
     it('can load from network', async function () {
       // Remove the true part for faster testing (only test disk, not network)
-      const needToStartServer = !fs.existsSync('./bds-' + version) || true
+      const needToStartServer = false // !fs.existsSync('./bds-' + version)
 
       const blobStore = new BlobStore()
 
@@ -115,7 +115,6 @@ for (const version of versions) {
           }
 
           async function processSubChunk(packet) {
-            // console.log('Client got subchunk', packet.data)
             const cc = ccs[packet.x + ',' + packet.z]
 
             if (packet.entries) { // 1.18.10+ handling
@@ -240,7 +239,7 @@ for (const version of versions) {
       }
     })
 
-    it('loaded at least one chunk with block entities inside', async function () {
+    it('client loaded at least one chunk with block entities inside', async function () {
       const fixtureFiles = fs.readdirSync(`fixtures/${version}/`)
       for (const [k, columns] of Object.entries({ cached: chunksWithCaching, uncached: chunksWithoutCaching })) {
         if (!columns) continue
@@ -266,11 +265,16 @@ for (const version of versions) {
         assert(has, 'Block entity column not found with ' + k)
       }
     })
+  })
+
+  describe('loads from disk ' + version, function () {
+    this.timeout(120 * 1000)
+    let db: LevelDB, wp: WorldProvider
 
     it('can load from disk', async function () {
-      const db = new LevelDB(join(__dirname, './bds-') + version + '/worlds/Bedrock level/db')
+      db = new LevelDB(join(__dirname, './bds-') + version + '/worlds/Bedrock level/db')
       await db.open()
-      const wp = new WorldProvider(db, { dimension: 0 })
+      wp = new WorldProvider(db, { dimension: 0 })
 
       let max = 10
       let foundStone = false
@@ -282,6 +286,7 @@ for (const version of versions) {
         if (key.type === 'chunk') {
           const chunk = await wp.getChunk(key.x, key.z)
           seenChunks++
+
           ok:
           for (let x = 0; x <= 16; x++) {
             for (let z = 0; z <= 16; z++) {
@@ -302,6 +307,27 @@ for (const version of versions) {
       }
 
       assert(foundStone, 'Did not find stone')
+    })
+
+    it('found entities and block entities', async () => {
+      const keys = await wp.getKeys()
+
+      let foundEntityCount = 0, foundBlockEntityCount = 0
+
+      for (const key of keys) {
+        if (key.type === 'chunk') {
+          const chunk = await wp.getChunk(key.x, key.z)
+          // console.log('Loaded chunk', chunk)
+          const entities = chunk.entities
+          const blockEntities = chunk.blockEntities
+          if (Object.keys(entities).length) foundEntityCount++
+          if (Object.keys(blockEntities).length) foundBlockEntityCount++
+        }
+      }
+
+      console.log('Found', foundEntityCount, 'entities and', foundBlockEntityCount, 'block entities')
+      assert(foundEntityCount, 'Did not find any entities')
+      assert(foundBlockEntityCount, 'Did not find any block entities')
     })
   })
 }

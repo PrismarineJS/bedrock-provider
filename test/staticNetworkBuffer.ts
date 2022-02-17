@@ -1,12 +1,9 @@
-// console.log = () => { throw new Error('console.log is disabled') }
-// import { chunk } from 'bedrock-provider'
 import Stream from 'prismarine-chunk/src/bedrock/common/Stream'
 import { join } from 'path'
-import PrismarineChunk, { BedrockChunk } from 'prismarine-chunk'
-import { StorageType } from '../src/chunk/Chunk'
+import PrismarineChunk from 'prismarine-chunk'
 import fs from 'fs'
 
-describe('network buffer test', function () {
+describe('static network buffer test', function () {
   it('works on 1.18', async function () {
     const registry = require('prismarine-registry')('bedrock_1.18.0')
     const ChunkColumn = PrismarineChunk(registry) as any// as typeof BedrockChunk
