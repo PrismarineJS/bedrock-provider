@@ -329,5 +329,7 @@ for (const version of versions) {
       assert(foundEntityCount, 'Did not find any entities')
       assert(foundBlockEntityCount, 'Did not find any block entities')
     })
+
+    // TODO: Re-encode tests...
   })
 }

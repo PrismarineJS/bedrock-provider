@@ -3,7 +3,7 @@ import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
 import { Version, chunkVersionToMinecraftVersion } from '../versions'
 import getChunk from '../chunk/loader'
 import { StorageType, BedrockChunk } from 'prismarine-chunk'
-import { Stream } from 'prismarine-chunk/src/bedrock/common/Stream'
+import Stream from 'prismarine-chunk/src/bedrock/common/Stream'
 
 export class WorldProvider {
   db: LevelDB
@@ -172,8 +172,8 @@ export class WorldProvider {
     }
   }
 
-  async save (column: BedrockChunk) {
-    const verKey = KeyBuilder.buildVersionKey(column.x, column.z, this.dimension)
+  async save (x: number, z: number, column: BedrockChunk) {
+    const verKey = KeyBuilder.buildVersionKey(x, z, this.dimension)
     await this.db.put(verKey, Buffer.from([column.chunkVersion]))
     await this.writeSubChunks(column)
     await this.writeEntities(column)
