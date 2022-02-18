@@ -26,7 +26,7 @@ for (const version of versions) {
 
     it('can load from network', async function () {
       // Remove the true part for faster testing (only test disk, not network)
-      const needToStartServer = false // !fs.existsSync('./bds-' + version)
+      const needToStartServer = !fs.existsSync('./bds-' + version)
 
       const blobStore = new BlobStore()
 

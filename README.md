@@ -6,7 +6,7 @@
 [![Irc](https://img.shields.io/badge/chat-on%20irc-brightgreen.svg)](https://irc.gitter.im/)
 [![Try it on gitpod](https://img.shields.io/badge/try-on%20gitpod-brightgreen.svg)](https://gitpod.io/#https://github.com/PrismarineJS/bedrock-provider)
 
-Minecraft Bedrock level provider for saves and network serialization
+Minecraft Bedrock level provider for loading and storing worlds on disk
 
 ## Install
 
@@ -27,9 +27,8 @@ const Block = require('prismarine-block')(registry)
 const ChunkColumn = require('prismarine-chunk')(registry)
 
 async function main() {
-    const cc = new ChunkColumn({ x: 0, z: 0 })
-    cc.setBlock({ x: 0, y: 1, z: 0 }, Block.fromStateId(registry.blocksByName.dirt.defaultState))
-
+  const cc = new ChunkColumn({ x: 0, z: 0 })
+  cc.setBlock({ x: 0, y: 1, z: 0 }, Block.fromStateId(registry.blocksByName.dirt.defaultState))
 
   // Create a new database and store this chunk in there
   const db = new LevelDB('./__sample', { createIfMissing: true }) // Create a DB class
