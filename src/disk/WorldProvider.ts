@@ -180,8 +180,8 @@ export class WorldProvider {
     await this.writeBiomesAndElevation(column)
   }
 
-  getChunk (x: number, z: number, full = true): Promise<BedrockChunk> {
-    return this.load(x, z, full)
+  async getChunk (x: number, z: number, full = true): Promise<BedrockChunk> {
+    return await this.load(x, z, full)
   }
 
   async getKeys (): Promise<KeyData[]> {
