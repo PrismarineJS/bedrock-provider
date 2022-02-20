@@ -1,3 +1,4 @@
+var SegfaultHandler = require('segfault-handler');
 import { LevelDB } from 'leveldb-zlib'
 import { WorldProvider } from 'bedrock-provider'
 import bp from 'bedrock-protocol'
@@ -21,7 +22,7 @@ for (const version of versions) {
   const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
 
   describe('loads over network ' + version, function () {
-    this.timeout(160 * 1000)
+    this.timeout(Infinity)
     let chunksWithCaching, chunksWithoutCaching
 
     it('can load from network', async function () {
@@ -31,7 +32,7 @@ for (const version of versions) {
       const blobStore = new BlobStore()
 
       if (needToStartServer) {
-        const port = 19132 + Math.floor(Math.random() * 1000)
+        const port = 19132 + Math.floor(Math.random() * 100)
         console.log('Server ran on port', port)
         const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
 
@@ -179,59 +180,61 @@ for (const version of versions) {
             })
           }
 
-          client.on('level_chunk', processLevelChunk)
-          client.on('subchunk', processSubChunk)
-          client.on('client_cache_miss_response', processCacheMiss)
+          // client.on('level_chunk', processLevelChunk)
+          // client.on('subchunk', processSubChunk)
+          // client.on('client_cache_miss_response', processCacheMiss)
 
-          fs.mkdirSync(`fixtures/${version}/pchunk`, { recursive: true })
-          client.on('packet', ({ data: { name, params }, fullBuffer }) => {
-            if (name === 'level_chunk') {
-              fs.writeFileSync(`fixtures/${version}/level_chunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z}.json`, serialize(params))
-            } else if (name === 'subchunk') {
-              fs.writeFileSync(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z},${params.y}.json`, serialize(params))
-            }
-          })
+          // fs.mkdirSync(`fixtures/${version}/pchunk`, { recursive: true })
+          // client.on('packet', ({ data: { name, params }, fullBuffer }) => {
+          //   if (name === 'level_chunk') {
+          //     fs.writeFileSync(`fixtures/${version}/level_chunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z}.json`, serialize(params))
+          //   } else if (name === 'subchunk') {
+          //     fs.writeFileSync(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z},${params.y}.json`, serialize(params))
+          //   }
+          // })
 
-          console.log('Client awaiting spawn')
-          await once(client, 'spawn')
-          console.log('Client spawned')
-          handle.stdin.write('op test\ngamemode creative @a\n')
-          await sleep(100)
-          // Set a block entity
-          client.write('command_request', {
-            command: `/setblock ~2 10 ~ minecraft:barrel`,
-            origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
-            interval: false
-          })
-          await sleep(500)
-          // // Set a normal block
-          client.write('command_request', {
-            command: `/setblock ~2 ~10 ~ minecraft:diamond_block`,
-            origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
-            interval: false
-          })
-          await sleep(500)
-          handle.stdin.write('save hold\n')
-          await sleep(1000)
-          handle.stdin.write('save query\n')
-          await sleep(1000)
-          // handle.stdin.write('save resume\n')
-          // await sleep(500)
+          // console.log('Client awaiting spawn')
+          await once(client, 'join')
           client.close()
+          // console.log('Client spawned')
+          // handle.stdin.write('op test\ngamemode creative @a\n')
+          // await sleep(100)
+          // // Set a block entity
+          // client.write('command_request', {
+          //   command: `/setblock ~2 10 ~ minecraft:barrel`,
+          //   origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
+          //   interval: false
+          // })
+          // await sleep(500)
+          // // // Set a normal block
+          // client.write('command_request', {
+          //   command: `/setblock ~2 ~10 ~ minecraft:diamond_block`,
+          //   origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
+          //   interval: false
+          // })
+          // await sleep(500)
+          // handle.stdin.write('save hold\n')
+          // await sleep(1000)
+          // handle.stdin.write('save query\n')
+          // await sleep(1000)
+          // // handle.stdin.write('save resume\n')
+          // await sleep(500)
 
-          if (cachingEnabled) {
-            assert(sentMiss, 'Should have sent a MISS')
-            assert(gotMiss, 'Should have got a MISS response')
-            chunksWithCaching = ccs
-          } else {
-            chunksWithoutCaching = ccs
-          }
+          // if (cachingEnabled) {
+          //   assert(sentMiss, 'Should have sent a MISS')
+          //   assert(gotMiss, 'Should have got a MISS response')
+          //   chunksWithCaching = ccs
+          // } else {
+          //   chunksWithoutCaching = ccs
+          // }
         }
 
-        await connect(false)
-        console.log('✅ Without caching')
-        await connect(true)
-        console.log('✅ With caching')
+        for (let i = 0; i < 50; i++) {
+          await connect(false)
+          console.log('✅ Without caching', i)
+          await connect(true)
+          console.log('✅ With caching', i)
+        }
 
         handle.stdin.write('stop\n')
         await sleep(1500)
