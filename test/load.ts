@@ -1,4 +1,4 @@
-var SegfaultHandler = require('segfault-handler');
+// var SegfaultHandler = require('segfault-handler');
 import { LevelDB } from 'leveldb-zlib'
 import { WorldProvider } from 'bedrock-provider'
 import bp from 'bedrock-protocol'
