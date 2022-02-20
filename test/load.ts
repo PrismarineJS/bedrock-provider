@@ -271,6 +271,7 @@ for (const version of versions) {
   })
 
   describe('loads from disk ' + version, function () {
+    return
     this.timeout(120 * 1000)
     let db: LevelDB, wp: WorldProvider
 
