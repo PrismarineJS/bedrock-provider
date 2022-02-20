@@ -19,7 +19,7 @@
     "minecraft-data": "^2.104.0",
     "prismarine-biome": "^1.1.1",
     "prismarine-block": "^1.11.0",
-    "prismarine-chunk": "extremeheat/prismarine-chunk#bed",
+    "prismarine-chunk": "^1.30.0",
     "prismarine-nbt": "^2.0.0",
     "prismarine-registry": "^1.1.0",
     "protodef": "^1.15.0",
