@@ -1,3 +1,6 @@
+## 2.2.0
+* Implement prismarine chunk
+
 ## 2.1.0
 * Add bedrock 1.17.30 and 1.18 level support
 
