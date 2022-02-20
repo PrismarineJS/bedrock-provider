@@ -6,7 +6,7 @@
 [![Irc](https://img.shields.io/badge/chat-on%20irc-brightgreen.svg)](https://irc.gitter.im/)
 [![Try it on gitpod](https://img.shields.io/badge/try-on%20gitpod-brightgreen.svg)](https://gitpod.io/#https://github.com/PrismarineJS/bedrock-provider)
 
-Minecraft Bedrock level provider for saves and network serialization
+Minecraft Bedrock level provider for loading and storing worlds on disk
 
 ## Install
 
@@ -22,25 +22,15 @@ Writing example:
 const fs = require('fs')
 const { LevelDB } = require('leveldb-zlib')
 const { WorldProvider } = require('bedrock-provider')
-const ChunkColumn = require('bedrock-provider').chunk('bedrock_1.17.10')
-const Block = require('prismarine-block')('bedrock_1.17.10')
+const registry = require('prismarine-registry')('bedrock_1.17.10')
+const Block = require('prismarine-block')(registry)
+const ChunkColumn = require('prismarine-chunk')(registry)
 
 async function main() {
-  // Create a new ChunkColumn at (0,0)
-  let cc = new ChunkColumn(0, 0)
+  const cc = new ChunkColumn({ x: 0, z: 0 })
+  cc.setBlock({ x: 0, y: 1, z: 0 }, Block.fromStateId(registry.blocksByName.dirt.defaultState))
 
-  for (var x = 0; x < 4; x++) {
-    for (var y = 0; y < 4; y++) {
-      for (var z = 0; z < 4; z++) {
-        // Set some random block IDs
-        const id = Math.floor(Math.random() * 1000)
-        let block = Block.fromStateId(id)
-        cc.setBlock({ x, y, z }, block)
-      }
-    }
-  }
-
-  // Now let's create a new database and store this chunk in there
+  // Create a new database and store this chunk in there
   const db = new LevelDB('./__sample', { createIfMissing: true }) // Create a DB class
   await db.open() // Open the database
   const world = new WorldProvider(db, { dimension: 0 })
@@ -65,46 +55,11 @@ second is an options object. The options argument takes a dimension ID (overworl
 The options argument also takes a version, which if not specified will default to the latest version. When you
 access APIs like getBlock or setBlock, this is the version which will be assumed.
 
-#### load(x: number, z: number, full: boolean): Promise<ChunkColumn>;
+#### load(x: number, z: number, full: boolean): Promise<ChunkColumn>
 
 This returns a ChunkColumn at the specified `x` and `z` coordinates. `full` if we should load biomes,
 entities, tiles, and other related data ontop of chunks.
 
-#### save(column: ChunkColumn): Promise<void>;
+#### save(x: number, z: number, column: ChunkColumn): Promise<void>
 
 Saves a ChunkColumn into the database.
-
-### ChunkColumn
-
-```js
-    constructor(version: Version, x: any, z: any);
-    getBlock(vec4: { l, x, y, z }): Block;
-    setBlock(vec4: { l, x, y, z }, block: Block): void;
-    addSection(section: SubChunk): void;
-
-    /**
-     * Encodes this chunk column for the network with no caching
-     * @param buffer Full chunk buffer
-     */
-    networkEncodeNoCache(): Promise<Buffer>;
-    /**
-     * Encodes this chunk column for use over network with caching enabled
-     *
-     * @param blobStore The blob store to write chunks in this section to
-     * @returns {Promise<Buffer[]>} The blob hashes for this chunk, the last one is biomes, rest are sections
-     */
-    networkEncodeBlobs(blobStore: BlobStore): Promise<CCHash[]>;
-    networkEncode(blobStore: BlobStore): Promise<{
-        blobs: CCHash[];
-        payload: Buffer;
-    }>;
-    networkDecodeNoCache(buffer: Buffer, sectionCount: number): Promise<void>;
-    /**
-     * Decodes cached chunks sent over the network
-     * @param blobs The blob hashes sent in the Chunk packe
-     * @param blobStore Our blob store for cached data
-     * @param {Buffer} payload The rest of the non-cached data
-     * @returns {CCHash[]} A list of hashes we don't have and need. If len > 0, decode failed.
-     */
-    networkDecode(blobs: CCHash[], blobStore: BlobStore, payload: any): Promise<CCHash[]>;
-```

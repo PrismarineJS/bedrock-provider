@@ -4,4 +4,6 @@ __*
 package-lock.json
 *mctestdb*
 test/bds-*
+test/flat-*
 test/junk
+*fixtures*

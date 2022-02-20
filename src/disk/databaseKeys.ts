@@ -8,7 +8,7 @@ export enum Tag {
   Data2D = 45, // 0x2d, height map + biomes
   Data2DLegacy = 46,
   SubChunkPrefix = 47, // 0x2f (/)
-  LegacyTerrain = 48,
+  LegacyTerrain = 48, // 0x30
   BlockEntity = 49,
   Entity = 50,
   PendingTicks = 51,
