@@ -1,10 +1,5 @@
-import column13 from './1.3/ChunkColumn'
 import PrismarineRegistry from 'prismarine-registry'
 import PrismarineChunk, { type BedrockChunk } from 'prismarine-chunk'
-
-const columns = {
-  1.3: column13
-}
 
 export default function getChunk (version) {
   let mcd = version

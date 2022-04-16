@@ -134,9 +134,8 @@ export class WorldProvider {
     }
   }
 
-  async readBorderBlocks (x, z, version) {
-    const ver = version || await this.getChunkVersion(x, z)
-    if (ver >= Version.v0_17_0) {
+  async readBorderBlocks (chunkVersion: number, x: number, z: number): Promise<Buffer> {
+    if (chunkVersion >= Version.v0_17_0) {
       const buffer = await this.get(KeyBuilder.buildBorderBlocksKey(x, z, this.dimension))
       return buffer
     }
