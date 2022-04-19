@@ -319,7 +319,7 @@ for (const version of versions) {
           }
 
           const blocks = chunk.getBlocks()
-          console.log('Blocks:', blocks.map(block => block.name).slice(0, 10).join(', '))
+          console.log('Blocks:', blocks.map(block => block.name.replace('minecraft:', '')).slice(0, 10).join(', '))
           max--
         }
       }
@@ -358,7 +358,6 @@ for (const version of versions) {
         if (key.type === 'chunk' && key.dim === 1) {
           const chunk = await wp.getChunk(key.x, key.z)
           const blocks = chunk.getBlocks()
-          console.log('Nether Blocks:', blocks.map(block => block.name).slice(0, 10).join(', '))
           foundNetherChunk = true
           for (const block of blocks) {
             if (block.name.includes('netherrack') || block.name.includes('lava') || block.name.includes('soul') || block.name.includes('basalt') || block.name.includes('blackstone')) {
