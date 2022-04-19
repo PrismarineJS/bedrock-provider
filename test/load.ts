@@ -31,7 +31,7 @@ for (const version of versions) {
       const blobStore = new BlobStore()
 
       if (needToStartServer) {
-        const port = 19132 + Math.floor(Math.random() * 1000)
+        const port = 19132 + Math.floor(Math.random() * 100)
         console.log('Server ran on port', port)
         const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
 
