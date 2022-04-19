@@ -211,7 +211,7 @@ for (const version of versions) {
             origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
             interval: false
           })
-          await sleep(500)
+          await sleep(1500)
           
           // Set a portal block to go to nether and place a block to force a chunk save
           client.write('command_request', {
