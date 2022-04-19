@@ -41,7 +41,7 @@ for (const version of versions) {
             port: port,
             version,
             // @ts-ignore
-            username: 'Notch',
+            username: 'Bot' + Math.floor(Math.random() * 1000),
             offline: true
           })
 
@@ -197,6 +197,14 @@ for (const version of versions) {
           console.log('Client spawned')
           handle.stdin.write('op test\ngamemode creative @a\n')
           await sleep(100)
+
+          // Summon a cow
+          client.write('command_request', {
+            command: `/summon cow ~2 ~2 ~2`,
+            origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
+            interval: false
+          })
+          
           // Set a block entity
           client.write('command_request', {
             command: `/setblock ~2 10 ~ minecraft:barrel`,
@@ -204,12 +212,22 @@ for (const version of versions) {
             interval: false
           })
           await sleep(500)
-          // // Set a normal block
+          
+          // Set a portal block to go to nether and place a block to force a chunk save
           client.write('command_request', {
-            command: `/setblock ~2 ~10 ~ minecraft:diamond_block`,
+            command: `/setblock ~ ~ ~ portal`,
             origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
             interval: false
           })
+          console.log('Set portal!')
+          await sleep(1000)
+          client.write('command_request', {
+            command: `/setblock ~2 10 ~ minecraft:barrel`,
+            origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
+            interval: false
+          })
+
+
           await sleep(500)
           handle.stdin.write('save hold\n')
           await sleep(1000)
@@ -283,7 +301,7 @@ for (const version of versions) {
 
       for (const key of keys) {
         if (max <= 0) break
-        if (key.type === 'chunk') {
+        if (key.type === 'chunk' && key.dim === 0) {
           const chunk = await wp.getChunk(key.x, key.z)
           seenChunks++
 
@@ -301,7 +319,7 @@ for (const version of versions) {
           }
 
           const blocks = chunk.getBlocks()
-          console.log('Blocks', blocks.map(block => block.name))
+          console.log('Blocks:', blocks.map(block => block.name).slice(0, 10).join(', '))
           max--
         }
       }
@@ -315,7 +333,7 @@ for (const version of versions) {
       let foundEntityCount = 0, foundBlockEntityCount = 0
 
       for (const key of keys) {
-        if (key.type === 'chunk') {
+        if (key.type === 'chunk' && key.dim === 0) {
           const chunk = await wp.getChunk(key.x, key.z)
           // console.log('Loaded chunk', chunk)
           const entities = chunk.entities
@@ -328,6 +346,35 @@ for (const version of versions) {
       console.log('Found', foundEntityCount, 'entities and', foundBlockEntityCount, 'block entities')
       assert(foundEntityCount, 'Did not find any entities')
       assert(foundBlockEntityCount, 'Did not find any block entities')
+    })
+
+    it('can load nether chunks', async function () {
+      const wp = new WorldProvider(db, { dimension: 1 })
+      const keys = await wp.getKeys()
+      
+      let foundNetherChunk = false, foundNetherBlocks = false
+
+      for (const key of keys) {
+        if (key.type === 'chunk' && key.dim === 1) {
+          const chunk = await wp.getChunk(key.x, key.z)
+          const blocks = chunk.getBlocks()
+          console.log('Nether Blocks:', blocks.map(block => block.name).slice(0, 10).join(', '))
+          foundNetherChunk = true
+          for (const block of blocks) {
+            if (block.name.includes('netherrack') || block.name.includes('lava') || block.name.includes('soul') || block.name.includes('basalt') || block.name.includes('blackstone')) {
+              foundNetherBlocks = true
+              break
+            }
+          }
+        }
+      }
+
+      assert(foundNetherChunk, 'Did not find any nether chunks')
+      assert(foundNetherBlocks, 'Did not find any nether blocks')
+    })
+
+    after(() => {
+      db.close()
     })
 
     // TODO: Re-encode tests...

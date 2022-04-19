@@ -41,6 +41,10 @@ export class WorldProvider {
 
     if (ChunkColumn) {
       const cc = new ChunkColumn({ x, z, chunkVersion })
+      if (this.dimension !== 0) {
+        cc.minCY = 0
+        cc.maxCY = 16
+      }
       for (let y = cc.minCY; y < cc.maxCY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         // console.log('Read chunk', x, y, z, chunk)

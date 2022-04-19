@@ -163,7 +163,6 @@ export interface KeyData {
 export async function recurseMinecraftKeys (db) {
   /* eslint-disable */
   function readKey(buffer: Buffer): KeyData[] {
-    let offset = 0
     let read
 
     let ksize = buffer.length
@@ -176,13 +175,11 @@ export async function recurseMinecraftKeys (db) {
       let dim = 0
 
       let overworld = ksize === 9
-      let otherDim = ksize === 13
+      let otherDim = ksize === 13 || ksize === 14
 
       if (otherDim) {
         dim = buffer.readInt32LE(8)
       }
-
-      // console.log('key', cx, cz, tagOver, tagWithDim, dim, overworld, otherDim)
 
       if (overworld && tagOver === Tag.VersionNew) {
         // Version 1.16.100+
