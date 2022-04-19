@@ -52,15 +52,14 @@ describe('make flat world', function () {
       fs.rmSync(worldPath, { recursive: true })
     })
 
-    it('works on nether chunks', async function () {
-      const db = new LevelDB(worldPath, { createIfMissing: false })
-      await db.open()
-      const wp = new WorldProvider(db, { dimension: 1, version })
-      const world = new (PrismarineWorld())(null, wp)
-      const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
-      // @ts-ignore
-      const Block = PrismarineBlock(registry)
-
-    })
+    // it('works on nether chunks', async function () {
+    //   const db = new LevelDB(worldPath, { createIfMissing: false })
+    //   await db.open()
+    //   const wp = new WorldProvider(db, { dimension: 1, version })
+    //   const world = new (PrismarineWorld())(null, wp)
+    //   const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
+    //   // @ts-ignore
+    //   const Block = PrismarineBlock(registry)
+    // })
   }
 })
