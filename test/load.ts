@@ -251,6 +251,12 @@ for (const version of versions) {
         await connect(true)
         console.log('✅ With caching')
 
+        if (process.env.CI) {
+          // CI can act weird, so let's run this again without caching
+          console.log('✅ CI second run without caching')
+          await connect(false)
+        }
+
         handle.stdin.write('stop\n')
         await sleep(1500)
         await handle.kill()
