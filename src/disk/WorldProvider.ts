@@ -49,7 +49,12 @@ export class WorldProvider {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         // console.log('Read chunk', x, y, z, chunk)
         if (!chunk) break
-        await cc.newSection(y, StorageType.LocalPersistence as int, chunk)
+        try {
+          cc.newSection(y, StorageType.LocalPersistence as int, chunk)
+        } catch (e) {
+          console.error('Error reading chunk', x, y, z, chunk, e)
+          throw e
+        }
       }
       return cc
     }
