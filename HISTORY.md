@@ -1,3 +1,8 @@
+## 3.0.0
+* Remove old chunk implementation (#18) @extremeheat
+  * Use prismarine-chunk chunk implementation
+* Fix nether chunk keys (#19) @extremeheat
+
 ## 2.2.0
 * Implement prismarine chunk
 
