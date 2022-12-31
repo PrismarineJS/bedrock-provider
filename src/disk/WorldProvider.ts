@@ -191,6 +191,7 @@ export class WorldProvider {
         if (entities instanceof Array) {
           for (const entity of entities) {
             const tag = nbt.protos.little.parsePacketBuffer('nbt', entity)
+            // @ts-ignore
             column.addEntity(tag.data)
           }
         } else {

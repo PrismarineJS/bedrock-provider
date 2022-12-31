@@ -6,7 +6,7 @@
 [![Irc](https://img.shields.io/badge/chat-on%20irc-brightgreen.svg)](https://irc.gitter.im/)
 [![Try it on gitpod](https://img.shields.io/badge/try-on%20gitpod-brightgreen.svg)](https://gitpod.io/#https://github.com/PrismarineJS/bedrock-provider)
 
-Minecraft Bedrock level provider for loading and storing worlds on disk
+Minecraft Bedrock level provider for loading and storing worlds on disk. Supports Minecraft Bedrock Editions 1.16, 1.17, 1.18.0, 1.18.10, and 1.18.30.
 
 ## Install
 
