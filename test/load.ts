@@ -14,7 +14,7 @@ const { setTimeout: sleep } = require('timers/promises')
 
 const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() === 'bigint' ? v.toString() : v)
 
-const versions = ['1.16.220', '1.17.10', '1.18.0']
+const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11']
 
 for (const version of versions) {
   const registry = PrismarineRegistry('bedrock_' + version)
@@ -100,12 +100,17 @@ for (const version of versions) {
               })
             }
 
-            if (packet.sub_chunk_count === -1) { // 1.18.0
+            if (packet.sub_chunk_count <= 0) { // 1.18.0+
               // 1.18+ handling, we need to send a SubChunk request
+              const maxSubChunkCount = packet.highest_subchunk_count || 5 // field is set if sub_chunk_count=-2 (1.18.10+)
+
               if (registry.version['>=']('1.18.11')) {
-                throw new Error('Not yet supported')
+                // We can send the request in one big load!
+                const requests: object[] = []
+                for (let i = 1; i < Math.min(maxSubChunkCount, 5); i++) requests.push({ dx: 0, dz: 0, dy: i })
+                client.queue('subchunk_request', { origin: { x: packet.x, z: packet.z, y: 0 }, requests })
               } else if (registry.version['>=']('1.18')) {
-                for (let i = 1; i < 5; i++) {
+                for (let i = 1; i < Math.min(maxSubChunkCount, 5); i++) {
                   client.queue('subchunk_request', { x: packet.x, z: packet.z, y: i })
                 }
               }
@@ -114,50 +119,65 @@ for (const version of versions) {
             ccs[packet.x + ',' + packet.z] = cc
           }
 
+          async function loadCached(cc, x, y, z, blobId, extraData) {
+            const misses = await cc.networkDecodeSubChunk([blobId], blobStore, extraData)
+            subChunkMissHashes.push(...misses)
+
+            for (const miss of misses) {
+              blobStore.addPending(miss, new BlobEntry({ type: BlobType.ChunkSection, x, z, y }))
+            }
+
+            if (subChunkMissHashes.length >= 10) {
+              sentMiss = true
+              const r = {
+                misses: subChunkMissHashes.length,
+                haves: 0,
+                have: [],
+                missing: subChunkMissHashes
+              }
+
+              client.queue('client_cache_blob_status', r)
+              subChunkMissHashes = []
+            }
+
+            if (misses.length) {
+              const [missed] = misses
+              // Once we get this blob, try again
+
+              blobStore.once([missed], async () => {
+                gotMiss = true
+                fs.writeFileSync(
+                  `fixtures/${version}/subchunk CacheMissResponse ${x},${z},${y}.json`,
+                  serialize({ blobs: Object.fromEntries([[missed.toString(), blobStore.get(missed).buffer]]) })
+                )
+                // Call this again, ignore the payload since that's already been decoded
+                const misses = await cc.networkDecodeSubChunk([missed], blobStore)
+                assert(!misses.length, 'Should not have missed anything')
+              })
+            }
+          }
+
           async function processSubChunk(packet) {
-            const cc = ccs[packet.x + ',' + packet.z]
-
             if (packet.entries) { // 1.18.10+ handling
-              // TODO...
-            } else {
-              if (!cachingEnabled) {
-                await cc.networkDecodeSubChunkNoCache(packet.y, packet.data)
-              } else {
-                const misses = await cc.networkDecodeSubChunk([packet.blob_id], blobStore, packet.data)
-                subChunkMissHashes.push(...misses)
-
-                for (const miss of misses) {
-                  blobStore.addPending(miss, new BlobEntry({ type: BlobType.ChunkSection, x: packet.x, z: packet.z, y: packet.y }))
-                }
-
-                if (subChunkMissHashes.length >= 10) {
-                  sentMiss = true
-                  const r = {
-                    misses: subChunkMissHashes.length,
-                    haves: 0,
-                    have: [],
-                    missing: subChunkMissHashes
+              for (const entry of packet.entries) {
+                const x = packet.origin.x + entry.dx
+                const y = packet.origin.y + entry.dy
+                const z = packet.origin.z + entry.dz
+                const cc = ccs[x + ',' + z]
+                if (entry.result === 'success') {
+                  if (packet.cache_enabled) {
+                    await loadCached(cc, x, y, z, entry.blob_id, entry.payload)
+                  } else {
+                    await cc.networkDecodeSubChunkNoCache(packet.y, entry.payload)
                   }
-
-                  client.queue('client_cache_blob_status', r)
-                  subChunkMissHashes = []
                 }
-
-                if (misses.length) {
-                  const [missed] = misses
-                  // Once we get this blob, try again
-
-                  blobStore.once([missed], async () => {
-                    gotMiss = true
-                    fs.writeFileSync(
-                      `fixtures/${version}/subchunk CacheMissResponse ${packet.x},${packet.z},${packet.y}.json`,
-                      serialize({ blobs: Object.fromEntries([[missed.toString(), blobStore.get(missed).buffer]]) })
-                    )
-                    // Call this again, ignore the payload since that's already been decoded
-                    const misses = await cc.networkDecodeSubChunk([missed], blobStore)
-                    assert(!misses.length, 'Should not have missed anything')
-                  })
-                }
+              }
+            } else {
+              const cc = ccs[packet.x + ',' + packet.z]
+              if (packet.cache_enabled) {
+                await loadCached(cc, packet.x, packet.y, packet.z, packet.blob_id, packet.data)
+              } else {
+                await cc.networkDecodeSubChunkNoCache(packet.y, packet.data)
               }
             }
           }
@@ -180,7 +200,7 @@ for (const version of versions) {
           }
 
           client.on('level_chunk', processLevelChunk)
-          client.on('subchunk', processSubChunk)
+          client.on('subchunk', (sc) => processSubChunk(sc).catch(console.error))
           client.on('client_cache_miss_response', processCacheMiss)
 
           fs.mkdirSync(`fixtures/${version}/pchunk`, { recursive: true })
@@ -204,7 +224,7 @@ for (const version of versions) {
             origin: { type: 'player', uuid: 'fd8f8f8f-8f8f-8f8f-8f8f-8f8f8f8f8f8f', request_id: '' },
             interval: false
           })
-          
+
           // Set a block entity
           client.write('command_request', {
             command: `/setblock ~2 10 ~ minecraft:barrel`,
@@ -212,7 +232,7 @@ for (const version of versions) {
             interval: false
           })
           await sleep(2600)
-          
+
           // Set a portal block to go to nether and place a block to force a chunk save
           client.write('command_request', {
             command: `/setblock ~ ~ ~ portal`,
@@ -361,7 +381,7 @@ for (const version of versions) {
     it('can load nether chunks', async function () {
       const wp = new WorldProvider(db, { dimension: 1 })
       const keys = await wp.getKeys()
-      
+
       let foundNetherChunk = false, foundNetherBlocks = false
 
       for (const key of keys) {
