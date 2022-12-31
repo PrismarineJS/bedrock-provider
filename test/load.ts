@@ -14,7 +14,7 @@ const { setTimeout: sleep } = require('timers/promises')
 
 const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() === 'bigint' ? v.toString() : v)
 
-const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11']
+const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11', '1.18.30']
 
 for (const version of versions) {
   const registry = PrismarineRegistry('bedrock_' + version)
