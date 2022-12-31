@@ -46,6 +46,25 @@ export class KeyBuilder {
     return stream.getBuffer()
   }
 
+  // This returns a list of entity IDs for chunk column
+  static buildEntityListKey (x, z, dimId) {
+    const stream = new BinaryStream()
+    stream.writeInt(0x64696770) // digp, big endian
+    stream.writeLInt(x)
+    stream.writeLInt(z)
+    if (dimId) {
+      stream.writeLInt(dimId)
+    }
+    return stream.getBuffer()
+  }
+
+  static buildEntityDataKey (entityId) {
+    const buffer = Buffer.alloc(19)
+    buffer.write('actorprefix', 'ascii')
+    buffer.writeBigInt64LE(entityId, 19 - 8)
+    return buffer
+  }
+
   static buildBlockEntityKey (x: int, z: int, dimId: int) {
     const stream = new BinaryStream()
     stream.writeLInt(x)

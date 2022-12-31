@@ -30,7 +30,8 @@ export enum Version {
 
   v1_17_40 = 31,
 
-  v1_18_0 = 39
+  v1_18_0 = 39,
+  v1_18_30 = 40
 }
 
 // TODO: move to mcdata
