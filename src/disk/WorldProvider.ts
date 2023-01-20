@@ -1,15 +1,17 @@
 import type { LevelDB } from 'leveldb-zlib'
-import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
-import { Version, chunkVersionToMinecraftVersion } from '../versions'
-import getChunk from '../chunk/loader'
-import { StorageType, BedrockChunk } from 'prismarine-chunk'
+import PrismarineRegistry from 'prismarine-registry'
+import PrismarineChunk, { StorageType, BedrockChunk } from 'prismarine-chunk'
 import Stream from 'prismarine-chunk/src/bedrock/common/Stream'
 import nbt from 'prismarine-nbt'
+
+import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
+import { Version, getHandlingForChunkVersion } from '../versions'
 
 export class WorldProvider {
   db: LevelDB
   dimension: number
-  version: string
+  registry: ReturnType<typeof PrismarineRegistry>
+  Chunks: Record<string, typeof BedrockChunk>
 
   /**
    * Creates a new Bedrock world provider
@@ -17,13 +19,17 @@ export class WorldProvider {
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
    *                version - The version to load the world as.
    */
-  constructor (db: LevelDB, options?: { dimension: number, version?}) {
+  constructor (db: LevelDB, options: { dimension: number, registry }) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
     }
     this.dimension = options.dimension || 0
-    this.version = options.version
+    this.registry = options.registry || PrismarineRegistry('bedrock_1.19.1')
+    this.Chunks = {
+      1.17: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.17' }, blockRegistry: this.registry }),
+      1.18: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.18' }, blockRegistry: this.registry })
+    } as Record<string, typeof BedrockChunk>
   }
 
   private async get (key): Promise<Buffer | null> {
@@ -37,8 +43,7 @@ export class WorldProvider {
   }
 
   async readSubChunks (chunkVersion: number, x: int, z: int) {
-    const mcVer = chunkVersionToMinecraftVersion(chunkVersion)
-    const ChunkColumn = getChunk(mcVer)
+    const ChunkColumn = this.Chunks[getHandlingForChunkVersion(chunkVersion)]
 
     if (ChunkColumn) {
       const cc = new ChunkColumn({ x, z, chunkVersion })
@@ -191,12 +196,13 @@ export class WorldProvider {
         if (entities instanceof Array) {
           for (const entity of entities) {
             const tag = nbt.protos.little.parsePacketBuffer('nbt', entity)
-            // @ts-ignore
+            // @ts-expect-error
             column.addEntity(tag.data)
           }
         } else {
           column.diskDecodeEntities(entities) // legacy pre1.18.30
         }
+
         // Block entities stored as normal
         column.diskDecodeBlockEntities(await this.readBlockEntities(cver, x, z))
         const data = await this.readBiomesAndElevation(x, z, cver)

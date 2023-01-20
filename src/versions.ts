@@ -66,3 +66,8 @@ export function chunkVersionToMinecraftVersion (version: number): string {
   if (version >= Version.v1_11_0) return '1.11.0'
   throw new Error(`Unknown chunk version ${version}`)
 }
+
+export function getHandlingForChunkVersion (version: number) {
+  if (version >= Version.v0_18_0) return '1.18'
+  if (version >= Version.v1_17_0) return '1.19'
+}

@@ -14,7 +14,7 @@ const { setTimeout: sleep } = require('timers/promises')
 
 const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() === 'bigint' ? v.toString() : v)
 
-const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11', '1.18.30']
+const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11', '1.18.30', '1.19.1']
 
 for (const version of versions) {
   const registry = PrismarineRegistry('bedrock_' + version)
@@ -108,10 +108,10 @@ for (const version of versions) {
                 // We can send the request in one big load!
                 const requests: object[] = []
                 for (let i = 1; i < Math.min(maxSubChunkCount, 5); i++) requests.push({ dx: 0, dz: 0, dy: i })
-                client.queue('subchunk_request', { origin: { x: packet.x, z: packet.z, y: 0 }, requests })
+                client.queue('subchunk_request', { origin: { x: packet.x, z: packet.z, y: 0 }, requests, dimension: 0 })
               } else if (registry.version['>=']('1.18')) {
                 for (let i = 1; i < Math.min(maxSubChunkCount, 5); i++) {
-                  client.queue('subchunk_request', { x: packet.x, z: packet.z, y: i })
+                  client.queue('subchunk_request', { x: packet.x, z: packet.z, y: i, dimension: 0 })
                 }
               }
             }
@@ -168,7 +168,7 @@ for (const version of versions) {
                   if (packet.cache_enabled) {
                     await loadCached(cc, x, y, z, entry.blob_id, entry.payload)
                   } else {
-                    await cc.networkDecodeSubChunkNoCache(packet.y, entry.payload)
+                    await cc.networkDecodeSubChunkNoCache(y, entry.payload)
                   }
                 }
               }
@@ -208,7 +208,11 @@ for (const version of versions) {
             if (name === 'level_chunk') {
               fs.writeFileSync(`fixtures/${version}/level_chunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z}.json`, serialize(params))
             } else if (name === 'subchunk') {
-              fs.writeFileSync(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z},${params.y}.json`, serialize(params))
+              if (params.origin) {
+                fs.writeFileSync(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.origin.x},${params.origin.z},${params.origin.y}.json`, serialize(params))
+              } else {
+                fs.writeFileSync(`fixtures/${version}/subchunk ${cachingEnabled ? 'cached' : ''} ${params.x},${params.z},${params.y}.json`, serialize(params))
+              }
             }
           })
 
@@ -322,7 +326,7 @@ for (const version of versions) {
     it('can load from disk', async function () {
       db = new LevelDB(join(__dirname, './bds-') + version + '/worlds/Bedrock level/db')
       await db.open()
-      wp = new WorldProvider(db, { dimension: 0 })
+      wp = new WorldProvider(db, { dimension: 0, registry })
 
       let max = 10
       let foundStone = false
@@ -379,7 +383,7 @@ for (const version of versions) {
     })
 
     it('can load nether chunks', async function () {
-      const wp = new WorldProvider(db, { dimension: 1 })
+      const wp = new WorldProvider(db, { dimension: 1, registry })
       const keys = await wp.getKeys()
 
       let foundNetherChunk = false, foundNetherBlocks = false
