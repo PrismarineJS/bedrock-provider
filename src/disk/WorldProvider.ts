@@ -27,8 +27,8 @@ export class WorldProvider {
     this.dimension = options.dimension || 0
     this.registry = options.registry || PrismarineRegistry('bedrock_1.19.1')
     this.Chunks = {
-      1.17: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.17' }, blockRegistry: this.registry }),
-      1.18: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.18' }, blockRegistry: this.registry })
+      1.17: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.17' }, blockRegistry: this.registry } as any),
+      1.18: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.18' }, blockRegistry: this.registry } as any)
     } as Record<string, typeof BedrockChunk>
   }
 
