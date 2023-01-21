@@ -68,6 +68,7 @@ export function chunkVersionToMinecraftVersion (version: number): string {
 }
 
 export function getHandlingForChunkVersion (version: number) {
-  if (version >= Version.v0_18_0) return '1.18'
+  if (version >= Version.v1_18_0) return '1.18'
   if (version >= Version.v1_17_0) return '1.19'
+  return '1.17'
 }
