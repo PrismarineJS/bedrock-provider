@@ -15,13 +15,15 @@ describe('make flat world', function () {
   for (const version of versions) {
     const registry = Registry('bedrock_' + version)
     const worldPath = join(__dirname, '/flat-world-' + version)
+    const World = PrismarineWorld(registry)
 
     it('works on ' + version, async () => {
       try { fs.rmSync(worldPath, { recursive: true }) } catch (e) { }
       const db = new LevelDB(worldPath, { createIfMissing: true })
       await db.open()
-      const wp = new WorldProvider(db, { dimension: 0, version })
-      const world = new (PrismarineWorld())(null, wp)
+      const wp = new WorldProvider(db, { dimension: 0, registry })
+      // @ts-ignore
+      const world = new World(null, wp)
       const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
       // @ts-ignore
       const Block = PrismarineBlock(registry)
