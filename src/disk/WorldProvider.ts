@@ -24,8 +24,9 @@ export class WorldProvider {
     if (!this.db.isOpen()) {
       this.db.open()
     }
+    if (!options.registry) throw new Error("'registry' field is required in WorldProvider options with an instance of prismarine-registry")
     this.dimension = options.dimension || 0
-    this.registry = options.registry || PrismarineRegistry('bedrock_1.19.1')
+    this.registry = options.registry
     this.Chunks = {
       1.17: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.17' }, blockRegistry: this.registry } as any),
       1.18: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.18' }, blockRegistry: this.registry } as any)

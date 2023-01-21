@@ -29,7 +29,7 @@ async function test () {
 
   const db = new LevelDB('./__sample', { createIfMissing: true }) // Create a DB class
   await db.open() // Open the database
-  const world = new WorldProvider(db, { dimension: 0 })
+  const world = new WorldProvider(db, { dimension: 0, registry })
   await world.save(0, 0, cc)
   await db.close() // Close it
   console.log('Done! 😃')
