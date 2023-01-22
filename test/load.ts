@@ -36,11 +36,6 @@ for (const version of versions) {
         console.log('Server ran on port', port)
         const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
 
-        let lostSubChunks = 0
-        after(() => {
-          console.log('Lost number of invalid subchunks was', lostSubChunks)
-        })
-
         async function connect(cachingEnabled) {
           const client = bp.createClient({
             host: 'localhost',
@@ -61,6 +56,10 @@ for (const version of versions) {
           let subChunkMissHashes = []
           let sentMiss = false
           let gotMiss = false
+          let lostSubChunks = 0
+          after(() => {
+            console.log(version, 'Lost number of invalid subchunks was', lostSubChunks, 'with caching', cachingEnabled)
+          })
 
           async function processLevelChunk(packet) {
             const cc = new ChunkColumn({ x: packet.x, z: packet.z })
@@ -303,6 +302,7 @@ for (const version of versions) {
 
     it('client loaded at least one chunk with block entities inside', async function () {
       const fixtureFiles = fs.readdirSync(`fixtures/${version}/`)
+      console.log('Reading', Object.keys(chunksWithCaching).length, 'cached chunks and', Object.keys(chunksWithoutCaching).length, 'uncached')
       let found = false
       for (const [k, columns] of Object.entries({ cached: chunksWithCaching, uncached: chunksWithoutCaching })) {
         if (!columns) continue
