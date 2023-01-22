@@ -6,7 +6,7 @@
 [![Irc](https://img.shields.io/badge/chat-on%20irc-brightgreen.svg)](https://irc.gitter.im/)
 [![Try it on gitpod](https://img.shields.io/badge/try-on%20gitpod-brightgreen.svg)](https://gitpod.io/#https://github.com/PrismarineJS/bedrock-provider)
 
-Minecraft Bedrock level provider for loading and storing worlds on disk
+Minecraft Bedrock level provider for loading and storing worlds on disk. Supports Minecraft Bedrock Editions 1.16, 1.17, 1.18.0, 1.18.10, 1.18.30 and 1.19.1.
 
 ## Install
 
@@ -32,11 +32,14 @@ async function main() {
   cc.setBlock({ x: 0, y: 1, z: 0 }, Block.fromStateId(registry.blocksByName.dirt.defaultState))
 
   // Create a new database and store this chunk in there
-  const db = new LevelDB('./sample', { createIfMissing: true }) // Create a DB class
+  const db = new LevelDB('./sample', { createIfMissing: true })
   await db.open() // Open the database
-  const world = new WorldProvider(db, { dimension: 0 })
-  world.save(x, z, cc) // Store this chunk in world
-  await db.close() // Close it
+  // Create a WorldProvider instance from the DB with a prismarine-registry
+  const world = new WorldProvider(db, { dimension: 0, registry })
+  // Store this chunk in world
+  world.save(x, z, cc)
+  // Close it
+  await db.close() 
   // Done! 😃
 }
 ```
@@ -47,14 +50,13 @@ See tests/ for more usage examples.
 
 ### WorldProvider
 
-#### constructor(db: LevelDB, options?: { dimension: number; version: string; });
+#### constructor(db: LevelDB, options: { dimension?: number; registry });
 
 The exported `WorldProvider` class allows you to load a save file from a LevelDB database. The
 first parameter is the db ([leveldb-zlib](http://npmjs.com/package/leveldb-zlib) instance), and the
 second is an options object. The options argument takes a dimension ID (overworld or nether or end are 1, 2 and 3).
 
-The options argument also takes a version, which if not specified will default to the latest version. When you
-access APIs like getBlock or setBlock, this is the version which will be assumed.
+The options argument also takes an instance of prismarine-registry, which will be used when doing block related calls.
 
 #### load(x: number, z: number, full: boolean): Promise<ChunkColumn>
 

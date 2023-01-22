@@ -30,7 +30,8 @@ export enum Version {
 
   v1_17_40 = 31,
 
-  v1_18_0 = 39
+  v1_18_0 = 39,
+  v1_18_30 = 40
 }
 
 // TODO: move to mcdata
@@ -64,4 +65,10 @@ export function chunkVersionToMinecraftVersion (version: number): string {
   if (version >= Version.v1_11_1) return '1.11.1'
   if (version >= Version.v1_11_0) return '1.11.0'
   throw new Error(`Unknown chunk version ${version}`)
+}
+
+export function getHandlingForChunkVersion (version: number) {
+  if (version >= Version.v1_18_0) return '1.18'
+  if (version >= Version.v1_17_0) return '1.19'
+  return '1.17'
 }

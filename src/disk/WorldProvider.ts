@@ -1,14 +1,17 @@
 import type { LevelDB } from 'leveldb-zlib'
-import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
-import { Version, chunkVersionToMinecraftVersion } from '../versions'
-import getChunk from '../chunk/loader'
-import { StorageType, BedrockChunk } from 'prismarine-chunk'
+import PrismarineRegistry from 'prismarine-registry'
+import PrismarineChunk, { StorageType, BedrockChunk } from 'prismarine-chunk'
 import Stream from 'prismarine-chunk/src/bedrock/common/Stream'
+import nbt from 'prismarine-nbt'
+
+import { KeyBuilder, KeyData, recurseMinecraftKeys } from './databaseKeys'
+import { Version, getHandlingForChunkVersion } from '../versions'
 
 export class WorldProvider {
   db: LevelDB
   dimension: number
-  version: string
+  registry: ReturnType<typeof PrismarineRegistry>
+  Chunks: Record<string, typeof BedrockChunk>
 
   /**
    * Creates a new Bedrock world provider
@@ -16,13 +19,18 @@ export class WorldProvider {
    * @param options dimension - 0 for overworld, 1 for nether, 2 for end
    *                version - The version to load the world as.
    */
-  constructor (db: LevelDB, options?: { dimension: number, version?}) {
+  constructor (db: LevelDB, options: { dimension: number, registry }) {
     this.db = db
     if (!this.db.isOpen()) {
       this.db.open()
     }
+    if (!options.registry) throw new Error("'registry' field is required in WorldProvider options with an instance of prismarine-registry")
     this.dimension = options.dimension || 0
-    this.version = options.version
+    this.registry = options.registry
+    this.Chunks = {
+      1.17: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.17' }, blockRegistry: this.registry } as any),
+      1.18: PrismarineChunk({ version: { type: 'bedrock', majorVersion: '1.18' }, blockRegistry: this.registry } as any)
+    } as Record<string, typeof BedrockChunk>
   }
 
   private async get (key): Promise<Buffer | null> {
@@ -36,8 +44,7 @@ export class WorldProvider {
   }
 
   async readSubChunks (chunkVersion: number, x: int, z: int) {
-    const mcVer = chunkVersionToMinecraftVersion(chunkVersion)
-    const ChunkColumn = getChunk(mcVer)
+    const ChunkColumn = this.Chunks[getHandlingForChunkVersion(chunkVersion)]
 
     if (ChunkColumn) {
       const cc = new ChunkColumn({ x, z, chunkVersion })
@@ -62,8 +69,19 @@ export class WorldProvider {
     return null
   }
 
-  async readEntities (chunkVersion: number, x: number, z: number): Promise<Buffer> {
-    if (chunkVersion >= Version.v0_17_0) {
+  async readEntities (chunkVersion: number, x: number, z: number): Promise<Buffer | Buffer[]> {
+    if (chunkVersion >= Version.v1_18_30) {
+      const list = []
+      const entities = await this.get(KeyBuilder.buildEntityListKey(x, z, this.dimension))
+      if (entities) {
+        for (let i = 0; i < entities.length; i += 8) {
+          const entityId = entities.readBigInt64LE(i)
+          const entity = await this.get(KeyBuilder.buildEntityDataKey(entityId))
+          list.push(entity)
+        }
+      }
+      return list
+    } else if (chunkVersion >= Version.v0_17_0) {
       const key = KeyBuilder.buildEntityKey(x, z, this.dimension)
       const buffer = await this.get(key)
       return buffer
@@ -116,9 +134,19 @@ export class WorldProvider {
   }
 
   async writeEntities (column: BedrockChunk) {
-    const key = KeyBuilder.buildEntityKey(column.x, column.z, this.dimension)
-    const buffer = column.diskEncodeEntities()
-    await this.db.put(key, buffer)
+    if (column.chunkVersion >= Version.v1_18_30) {
+      const listKey = KeyBuilder.buildEntityListKey(column.x, column.z, this.dimension)
+      const listStream = new Stream()
+      for (const [entityID, entityNBT] of Object.entries(column.entities)) {
+        listStream.writeInt64LE(BigInt(entityID))
+        await this.db.put(KeyBuilder.buildEntityDataKey(BigInt(entityID)), nbt.writeUncompressed(entityNBT, 'little'))
+      }
+      await this.db.put(listKey, listStream)
+    } else {
+      const key = KeyBuilder.buildEntityKey(column.x, column.z, this.dimension)
+      const buffer = column.diskEncodeEntities()
+      await this.db.put(key, buffer)
+    }
   }
 
   async writeBlockEntities (column: BedrockChunk) {
@@ -163,7 +191,20 @@ export class WorldProvider {
     if (cver) {
       const column = await this.readSubChunks(cver, x, z)
       if (full) {
-        column.diskDecodeEntities(await this.readEntities(cver, x, z))
+        // 1.18.30 changes entities to be stored in their own keys opposed to grouped with chunk.
+        // Makes more sense to handle in bedrock-protocol as DB lookup logic is more complex...
+        const entities = await this.readEntities(cver, x, z)
+        if (entities instanceof Array) {
+          for (const entity of entities) {
+            const tag = nbt.protos.little.parsePacketBuffer('nbt', entity)
+            // @ts-expect-error
+            column.addEntity(tag.data)
+          }
+        } else {
+          column.diskDecodeEntities(entities) // legacy pre1.18.30
+        }
+
+        // Block entities stored as normal
         column.diskDecodeBlockEntities(await this.readBlockEntities(cver, x, z))
         const data = await this.readBiomesAndElevation(x, z, cver)
         if (data) {
