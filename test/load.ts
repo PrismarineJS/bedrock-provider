@@ -56,9 +56,9 @@ for (const version of versions) {
           let subChunkMissHashes = []
           let sentMiss = false
           let gotMiss = false
-          let lostSubChunks = 0
+          let lostSubChunks = 0, foundSubChunks = 0
           after(() => {
-            console.log(version, 'Lost number of invalid subchunks was', lostSubChunks, 'with caching', cachingEnabled)
+            console.log(version, 'Lost number of invalid subchunks was', lostSubChunks, ', and found', foundSubChunks, 'with caching', cachingEnabled)
           })
 
           async function processLevelChunk(packet) {
@@ -171,6 +171,7 @@ for (const version of versions) {
                 const z = packet.origin.z + entry.dz
                 const cc = ccs[x + ',' + z]
                 if (entry.result === 'success') {
+                  foundSubChunks++
                   if (packet.cache_enabled) {
                     await loadCached(cc, x, y, z, entry.blob_id, entry.payload)
                   } else {
@@ -185,6 +186,7 @@ for (const version of versions) {
                 lostSubChunks++
                 return
               }
+              foundSubChunks++
               const cc = ccs[packet.x + ',' + packet.z]
               if (packet.cache_enabled) {
                 await loadCached(cc, packet.x, packet.y, packet.z, packet.blob_id, packet.data)
