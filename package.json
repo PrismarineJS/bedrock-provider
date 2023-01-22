@@ -7,7 +7,7 @@
     "build": "tsc",
     "lint": "ts-standard",
     "fix": "ts-standard --fix",
-    "test": "tsc && mocha --bail --require ts-node/register test/*.ts --exit"
+    "test": "tsc && mocha --bail --require mocha-steps --require ts-node/register test/*.ts --exit"
   },
   "author": "extrmeheat",
   "repository": {
@@ -34,6 +34,7 @@
     "leveldb-zlib": "^1.0.0",
     "minecraft-bedrock-server": "^1.1.0",
     "mocha": "^10.2.0",
+    "mocha-steps": "^1.3.0",
     "prismarine-world": "^3.6.0",
     "ts-node": "^10.9.1",
     "ts-standard": "^10.0.0",

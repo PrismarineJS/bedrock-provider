@@ -17,6 +17,8 @@ const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() ===
 
 const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11', '1.18.30', '1.19.1']
 
+declare var step
+
 for (const version of versions) {
   const registry = PrismarineRegistry('bedrock_' + version)
   const ChunkColumn = PrismarineChunk(registry) as typeof BedrockChunk
@@ -26,7 +28,7 @@ for (const version of versions) {
     this.retries(2)
     let chunksWithCaching, chunksWithoutCaching
 
-    it('can load from network', async function () {
+    step('can load from network', async function () {
       // Remove the true part for faster testing (only test disk, not network)
       const needToStartServer = !fs.existsSync('./bds-' + version)
 
@@ -304,7 +306,7 @@ for (const version of versions) {
       }
     })
 
-    it('client loaded at least one chunk with block entities inside', async function () {
+    step('client loaded at least one chunk with block entities inside', async function () {
       const fixtureFiles = fs.readdirSync(`fixtures/${version}/`)
       console.log('Reading', Object.keys(chunksWithCaching).length, 'cached chunks and', Object.keys(chunksWithoutCaching).length, 'uncached')
       let found = false
