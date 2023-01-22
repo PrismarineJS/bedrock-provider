@@ -23,6 +23,7 @@ for (const version of versions) {
 
   describe('loads over network ' + version, function () {
     this.timeout(160 * 1000)
+    this.retries(1)
     let chunksWithCaching, chunksWithoutCaching
 
     it('can load from network', async function () {
@@ -33,8 +34,9 @@ for (const version of versions) {
 
       if (needToStartServer) {
         const port = await getPort()
+        const portV6 = await getPort()
         console.log('Server ran on port', port)
-        const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
+        const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': portV6 })
 
         async function connect(cachingEnabled) {
           const client = bp.createClient({
