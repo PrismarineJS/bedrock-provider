@@ -36,6 +36,11 @@ for (const version of versions) {
         console.log('Server ran on port', port)
         const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
 
+        let lostSubChunks = 0
+        after(() => {
+          console.log('Lost number of invalid subchunks was', lostSubChunks)
+        })
+
         async function connect(cachingEnabled) {
           const client = bp.createClient({
             host: 'localhost',
@@ -102,7 +107,7 @@ for (const version of versions) {
               })
             }
 
-            if (packet.sub_chunk_count <= 0) { // 1.18.0+
+            if (packet.sub_chunk_count < 0) { // 1.18.0+
               // 1.18+ handling, we need to send a SubChunk request
               const maxSubChunkCount = packet.highest_subchunk_count || 5 // field is set if sub_chunk_count=-2 (1.18.10+)
 
@@ -172,10 +177,15 @@ for (const version of versions) {
                   } else {
                     await cc.networkDecodeSubChunkNoCache(y, entry.payload)
                   }
+                } else {
+                  lostSubChunks++
                 }
               }
             } else {
-              if (packet.request_result !== 'success') return
+              if (packet.request_result !== 'success') {
+                lostSubChunks++
+                return
+              }
               const cc = ccs[packet.x + ',' + packet.z]
               if (packet.cache_enabled) {
                 await loadCached(cc, packet.x, packet.y, packet.z, packet.blob_id, packet.data)
