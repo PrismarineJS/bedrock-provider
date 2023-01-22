@@ -10,6 +10,7 @@ import { join } from 'path'
 
 import fs from 'fs'
 import BlobStore from './util/BlobStore'
+import getPort from './util/getPort'
 const { setTimeout: sleep } = require('timers/promises')
 
 const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() === 'bigint' ? v.toString() : v)
@@ -31,7 +32,7 @@ for (const version of versions) {
       const blobStore = new BlobStore()
 
       if (needToStartServer) {
-        const port = 19132 + Math.floor(Math.random() * 100)
+        const port = await getPort()
         console.log('Server ran on port', port)
         const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': port + 1 })
 
@@ -42,6 +43,7 @@ for (const version of versions) {
             version,
             // @ts-ignore
             username: 'Bot' + Math.floor(Math.random() * 1000),
+            skipPing: true,
             offline: true
           })
 
@@ -173,6 +175,7 @@ for (const version of versions) {
                 }
               }
             } else {
+              if (packet.request_result !== 'success') return
               const cc = ccs[packet.x + ',' + packet.z]
               if (packet.cache_enabled) {
                 await loadCached(cc, packet.x, packet.y, packet.z, packet.blob_id, packet.data)
