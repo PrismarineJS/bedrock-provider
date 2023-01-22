@@ -23,7 +23,7 @@ for (const version of versions) {
 
   describe('loads over network ' + version, function () {
     this.timeout(160 * 1000)
-    this.retries(1)
+    this.retries(2)
     let chunksWithCaching, chunksWithoutCaching
 
     it('can load from network', async function () {
