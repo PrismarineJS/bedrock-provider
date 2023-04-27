@@ -115,7 +115,7 @@ for (const version of versions) {
                 // We can send the request in one big load!
                 const requests: object[] = []
                 for (let i = 1; i < Math.min(maxSubChunkCount, 5); i++) requests.push({ dx: 0, dz: 0, dy: i })
-                client.queue('subchunk_request', { origin: { x: packet.x, z: packet.z, y: 0 }, requests, dimension: 0 })
+                client.queue('subchunk_request', { origin: { x: packet.x, z: packet.z, y: -1 }, requests, dimension: 0 })
               } else if (registry.version['>=']('1.18')) {
                 for (let i = 1; i < Math.min(maxSubChunkCount, 5); i++) {
                   client.queue('subchunk_request', { x: packet.x, z: packet.z, y: i, dimension: 0 })
