@@ -15,7 +15,7 @@ describe('make flat world', function () {
   for (const version of versions) {
     const registry = Registry('bedrock_' + version)
     const worldPath = join(__dirname, '/flat-world-' + version)
-    const World = PrismarineWorld(registry)
+    const World = PrismarineWorld('bedrock_' + version)
 
     it('works on ' + version, async () => {
       try { fs.rmSync(worldPath, { recursive: true }) } catch (e) { }
