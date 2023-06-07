@@ -47,7 +47,6 @@ describe('make flat world', function () {
       world.setLoadedColumn(0, 0, cc)
       world.queueSaving(0, 0)
       await world.saveNow() // Why does this not return proper Promise?
-      await world.finishedSaving
       console.log('OK')
       await db.close()
 
