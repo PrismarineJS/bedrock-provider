@@ -1,5 +1,5 @@
 import { LevelDB } from 'leveldb-zlib'
-import { WorldProvider } from 'bedrock-provider'
+import { Version , WorldProvider } from 'bedrock-provider'
 import bp from 'bedrock-protocol'
 import bedrockServer from 'minecraft-bedrock-server'
 import PrismarineRegistry from 'prismarine-registry'
@@ -15,7 +15,7 @@ const { setTimeout: sleep } = require('timers/promises')
 
 const serialize = obj => JSON.stringify(obj, (k, v) => typeof v?.valueOf?.() === 'bigint' ? v.toString() : v)
 
-const versions = ['1.16.220', '1.17.10', '1.18.0', '1.18.11', '1.18.30', '1.19.1']
+const versions: bp.Version[] = ['1.16.220', '1.17.10', '1.18.0', '1.18.11', '1.18.30', '1.19.1']
 
 for (const version of versions) {
   const registry = PrismarineRegistry('bedrock_' + version)
