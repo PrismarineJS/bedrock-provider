@@ -1,5 +1,5 @@
 import { LevelDB } from 'leveldb-zlib'
-import { Version , WorldProvider } from 'bedrock-provider'
+import { WorldProvider } from 'bedrock-provider'
 import bp from 'bedrock-protocol'
 import bedrockServer from 'minecraft-bedrock-server'
 import PrismarineRegistry from 'prismarine-registry'
@@ -319,7 +319,8 @@ for (const version of versions) {
                 console.log('=> section with block entities at y=', i)
               }
             }
-            has = true, found = true
+            has = true
+            found = true
             // Copy over this test file into "pchunk" folder that can be used to test prismarine-chunk
             for (const fixFile of fixtureFiles) {
               if (fixFile.includes(key)) {
