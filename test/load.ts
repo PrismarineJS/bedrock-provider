@@ -35,14 +35,19 @@ for (const version of versions) {
         const port = await getPort()
         const portV6 = await getPort()
         console.log('Server ran on port', port)
-        const handle = await bedrockServer.startServerAndWait(version, 90000, { path: join(__dirname, './bds-' + version), 'server-port': port, 'server-portv6': portV6 })
+        // @ts-ignore
+        const handle = await bedrockServer.startServerAndWait(version, 90000, {
+          path: join(__dirname, './bds-' + version),
+          'server-port': port,
+          'server-portv6': portV6
+        })
 
         async function connect(cachingEnabled) {
           const client = bp.createClient({
             host: 'localhost',
             port: port,
-            version,
             // @ts-ignore
+            version,
             username: 'Bot' + Math.floor(Math.random() * 1000),
             skipPing: true,
             offline: true
