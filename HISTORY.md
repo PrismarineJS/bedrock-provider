@@ -1,3 +1,7 @@
+## 3.1.0
+* [Create commands.yml workflow](https://github.com/PrismarineJS/bedrock-provider/commit/697c6fd799e2cdaf5ad4e5dd32ab1793fdfe7b59) (thanks @extremeheat)
+* [Support 1.18.10, 1.18.30 and 1.19.1 (#22)](https://github.com/PrismarineJS/bedrock-provider/commit/f4cab76906216dae1caf1a765d7e882874114aa9) (thanks @extremeheat)
+
 ## 3.0.0
 * Remove old chunk implementation (#18) @extremeheat
   * Use prismarine-chunk chunk implementation
