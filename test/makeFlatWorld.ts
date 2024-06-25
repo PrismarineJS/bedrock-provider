@@ -15,6 +15,7 @@ describe('make flat world', function () {
   for (const version of versions) {
     const registry = Registry('bedrock_' + version)
     const worldPath = join(__dirname, '/flat-world-' + version)
+    // @ts-ignore
     const World = PrismarineWorld(registry)
 
     it('works on ' + version, async () => {
@@ -35,7 +36,7 @@ describe('make flat world', function () {
           for (var z = 0; z < 4; z++) {
             // Set a random block ID
             const id = Math.floor(Math.random() * 1000)
-            const block = Block.fromStateId(id)
+            const block = Block.fromStateId(id, 0)
             cc.setBlock({ l, x, y, z }, block)
             const gotblock = cc.getBlock({ l, x, y, z })
             assert.strictEqual(gotblock.stateId, id)
@@ -47,6 +48,7 @@ describe('make flat world', function () {
       world.setLoadedColumn(0, 0, cc)
       world.queueSaving(0, 0)
       await world.saveNow() // Why does this not return proper Promise?
+      // @ts-ignore
       await world.finishedSaving
       console.log('OK')
       await db.close()
