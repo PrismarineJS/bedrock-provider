@@ -4,7 +4,7 @@ import bp from 'bedrock-protocol'
 import bedrockServer from 'minecraft-bedrock-server'
 import PrismarineRegistry from 'prismarine-registry'
 import PrismarineChunk from 'prismarine-chunk'
-const { BedrockChunk, BlobEntry, BlobType } = PrismarineChunk
+const { BedrockChunk, BlobEntry, BlobType } = PrismarineChunk as any
 import { once } from 'events'
 import assert from 'assert'
 import { join } from 'path'
