@@ -1,7 +1,6 @@
 import type { LevelDB } from 'leveldb-zlib'
 import PrismarineRegistry from 'prismarine-registry'
-import PrismarineChunk from 'prismarine-chunk'
-const { StorageType, BedrockChunk } = PrismarineChunk
+import PrismarineChunk, { StorageType, BedrockChunk } from 'prismarine-chunk'
 import Stream from 'prismarine-chunk/src/bedrock/common/Stream'
 import nbt from 'prismarine-nbt'
 
