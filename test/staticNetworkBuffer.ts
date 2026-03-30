@@ -6,6 +6,11 @@ import fs from 'fs'
 describe('static network buffer test', function () {
   it('works on 1.18', async function () {
     const registry = require('prismarine-registry')('bedrock_1.18.0')
+    // Populate blocksByRuntimeId which is normally done via handleStartGame during network play
+    registry.blocksByRuntimeId = {}
+    for (let i = 0; i < registry.blockStates.length; i++) {
+      registry.blocksByRuntimeId[i] = { stateId: i, ...registry.blocksByStateId[i] }
+    }
     const ChunkColumn = PrismarineChunk(registry) as any// as typeof BedrockChunk
 
     // Load the level_chunk data
