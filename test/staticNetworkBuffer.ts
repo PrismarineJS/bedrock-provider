@@ -6,7 +6,6 @@ import fs from 'fs'
 describe('static network buffer test', function () {
   it('works on 1.18', async function () {
     const registry = require('prismarine-registry')('bedrock_1.18.0')
-    // Populate blocksByRuntimeId which is normally done via handleStartGame during network play
     registry.blocksByRuntimeId = {}
     for (let i = 0; i < registry.blockStates.length; i++) {
       registry.blocksByRuntimeId[i] = { stateId: i, ...registry.blocksByStateId[i] }
@@ -80,6 +79,10 @@ describe('static network buffer test', function () {
 
   it('works on 1.16', async function () {
     const registry = require('prismarine-registry')('bedrock_1.16.220')
+    registry.blocksByRuntimeId = {}
+    for (let i = 0; i < registry.blockStates.length; i++) {
+      registry.blocksByRuntimeId[i] = { stateId: i, ...registry.blocksByStateId[i] }
+    }
     const ChunkColumn = require('prismarine-chunk')(registry)
     // const ChunkColumn = chunk('1.16.220')
     const buf = Buffer.from(fs.readFileSync(join(__dirname, './1.16/chunk-0.txt'), 'utf-8'), 'hex')
