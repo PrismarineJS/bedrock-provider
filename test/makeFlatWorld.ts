@@ -5,7 +5,8 @@ import assert from 'assert'
 import Registry from 'prismarine-registry'
 import PrismarineBlock from 'prismarine-block'
 import PrismarineWorld from 'prismarine-world'
-import PrismarineChunk, { BedrockChunk } from 'prismarine-chunk'
+import PrismarineChunk from 'prismarine-chunk'
+const { BedrockChunk } = PrismarineChunk as any
 import fs from 'fs'
 import { Vec3 } from 'vec3'
 
