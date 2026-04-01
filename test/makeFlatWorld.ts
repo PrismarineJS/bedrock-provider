@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 import { WorldProvider } from 'bedrock-provider'
 import { LevelDB } from 'leveldb-zlib'
 import { join } from 'path'

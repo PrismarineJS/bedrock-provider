@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 import Stream from 'prismarine-chunk/src/bedrock/common/Stream'
 import { join } from 'path'
 import PrismarineChunk from 'prismarine-chunk'
