@@ -1,3 +1,6 @@
+## 3.2.0
+* [Update CI to Node 24 (#26)](https://github.com/PrismarineJS/bedrock-provider/commit/c09f7c4393ae271ee21c35c6f6a0a8d307159fb9) (thanks @rom1504)
+
 ## 3.1.0
 * [Create commands.yml workflow](https://github.com/PrismarineJS/bedrock-provider/commit/697c6fd799e2cdaf5ad4e5dd32ab1793fdfe7b59) (thanks @extremeheat)
 * [Support 1.18.10, 1.18.30 and 1.19.1 (#22)](https://github.com/PrismarineJS/bedrock-provider/commit/f4cab76906216dae1caf1a765d7e882874114aa9) (thanks @extremeheat)
