@@ -16,6 +16,7 @@
   "license": "MIT",
   "dependencies": {
     "@jsprismarine/jsbinaryutils": "^2.1.7",
+    "debug": "^4.3.3",
     "minecraft-data": "^3.0.0",
     "prismarine-biome": "^1.1.1",
     "prismarine-block": "^1.11.0",
