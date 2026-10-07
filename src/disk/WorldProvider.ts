@@ -55,7 +55,7 @@ export class WorldProvider {
       for (let y = cc.minCY; y < cc.maxCY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         // console.log('Read chunk', x, y, z, chunk)
-        if (!chunk) break
+        if (!chunk) continue // an empty sub chunk is not saved; one above it may be
         try {
           cc.newSection(y, StorageType.LocalPersistence as int, chunk)
         } catch (e) {
@@ -122,7 +122,7 @@ export class WorldProvider {
       for (let y = column.minCY; y < column.maxCY; y++) {
         const section = column.getSectionAtIndex(y)
         if (!section) {
-          break // no more sections
+          continue // an empty sub chunk; one above it may hold blocks
         }
         const key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
         const buf = await section.encode(StorageType.LocalPersistence)

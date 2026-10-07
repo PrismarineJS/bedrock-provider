@@ -65,5 +65,13 @@ describe('save and load', function () {
       const blocks = subChunkYs.flatMap(cy => fillSubChunk(column, cy))
       assertSubChunks(await saveAndLoad(column), subChunkYs, blocks)
     })
+
+    it(`keeps the sub chunks above an empty one on ${version}`, async () => {
+      // Empty sub chunks below the first one and between the others, like a floating island
+      const column = new ChunkColumn({ x: 3, z: 4 })
+      const subChunkYs = [column.minCY + 2, column.minCY + 5, column.maxCY - 1]
+      const blocks = subChunkYs.flatMap(cy => fillSubChunk(column, cy))
+      assertSubChunks(await saveAndLoad(column), subChunkYs, blocks)
+    })
   }
 })
