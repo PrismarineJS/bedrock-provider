@@ -206,7 +206,7 @@ export class WorldProvider {
 
         // Block entities stored as normal
         column.diskDecodeBlockEntities(await this.readBlockEntities(cver, x, z))
-        const data = await this.readBiomesAndElevation(x, z, cver)
+        const data = await this.readBiomesAndElevation(cver, x, z)
         if (data) {
           if (data.heightmap) column.loadHeights(new Uint16Array(data.heightmap))
           if (data.biomes2d) {

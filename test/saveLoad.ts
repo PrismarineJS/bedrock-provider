@@ -1,4 +1,4 @@
-import { WorldProvider } from 'bedrock-provider'
+import { WorldProvider, Version } from 'bedrock-provider'
 import { LevelDB } from 'leveldb-zlib'
 import { join } from 'path'
 import assert from 'assert'
@@ -16,6 +16,8 @@ describe('save and load', function () {
     const registry = Registry('bedrock_' + version)
     const ChunkColumn = PrismarineChunk(registry) as any
     const worldPath = join(__dirname, '/flat-save-load-' + version)
+    const chunkVersion = new ChunkColumn({ x: 0, z: 0 }).chunkVersion
+    const biomeIds = [1, 2, 4, 21] // plains, desert, forest, jungle
     let db: LevelDB
     let wp: WorldProvider
 
@@ -44,9 +46,9 @@ describe('save and load', function () {
       return blocks
     }
 
-    async function saveAndLoad (column) {
+    async function saveAndLoad (column, full = false) {
       await wp.save(column.x, column.z, column)
-      return await wp.load(column.x, column.z, false)
+      return await wp.load(column.x, column.z, full)
     }
 
     function assertSubChunks (loaded, subChunkYs: number[], blocks: Array<{ pos: Pos, stateId: number }>) {
@@ -73,5 +75,21 @@ describe('save and load', function () {
       const blocks = subChunkYs.flatMap(cy => fillSubChunk(column, cy))
       assertSubChunks(await saveAndLoad(column), subChunkYs, blocks)
     })
+
+    if (chunkVersion < Version.v1_18_0) {
+      it(`keeps the 2D biomes on ${version}`, async () => {
+        // Not at 0,0, so biomes read for another column are caught
+        const column = new ChunkColumn({ x: -5, z: 7 })
+        for (let x = 0; x < 16; x++) {
+          for (let z = 0; z < 16; z++) column.setBiomeId({ x, y: 0, z }, biomeIds[(x + z) % biomeIds.length])
+        }
+        const loaded = await saveAndLoad(column, true)
+        for (let x = 0; x < 16; x++) {
+          for (let z = 0; z < 16; z++) {
+            assert.strictEqual(loaded.getBiomeId({ x, y: 0, z }), biomeIds[(x + z) % biomeIds.length], `biome at ${x},${z}`)
+          }
+        }
+      })
+    }
   }
 })
