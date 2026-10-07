@@ -6,8 +6,8 @@ import Registry from 'prismarine-registry'
 import PrismarineChunk from 'prismarine-chunk'
 import fs from 'fs'
 
-// Versions whose columns store each sub chunk under its own key
-const subChunkVersions = ['1.18.0', '1.19.1', '1.20.0', '1.21.0']
+// Sub chunks have a key of their own since 0.17.0; prismarine-chunk gives 1.16 and 1.17 columns chunk version 1.16.0
+const subChunkVersions = ['1.16.220', '1.17.10', '1.18.0', '1.19.1', '1.20.0', '1.21.0']
 
 type Pos = { l: number, x: number, y: number, z: number }
 
