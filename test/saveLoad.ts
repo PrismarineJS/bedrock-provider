@@ -46,7 +46,7 @@ describe('save and load', function () {
       return blocks
     }
 
-    async function saveAndLoad (column, full = false) {
+    async function saveAndLoad (column, full = false): Promise<any> {
       await wp.save(column.x, column.z, column)
       return await wp.load(column.x, column.z, full)
     }
@@ -74,6 +74,15 @@ describe('save and load', function () {
       const subChunkYs = [column.minCY + 2, column.minCY + 5, column.maxCY - 1]
       const blocks = subChunkYs.flatMap(cy => fillSubChunk(column, cy))
       assertSubChunks(await saveAndLoad(column), subChunkYs, blocks)
+    })
+
+    it(`keeps the heightmap on ${version}`, async () => {
+      const column = new ChunkColumn({ x: 2, z: -3 })
+      // Heights above 255 too, so they don't fit in a byte
+      const heights = new Uint16Array(256).map((_, i) => (i * 7) % 400)
+      column.loadHeights(heights)
+      const loaded = await saveAndLoad(column, true)
+      assert.deepStrictEqual(Array.from(loaded.getHeights()), Array.from(heights))
     })
 
     if (chunkVersion < Version.v1_18_0) {

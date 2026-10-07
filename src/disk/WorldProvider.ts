@@ -155,6 +155,13 @@ export class WorldProvider {
     await this.db.put(key, buffer)
   }
 
+  // The heightmap: 256 little-endian 16-bit heights
+  readHeights (heightmap: Buffer): Uint16Array {
+    const heights = new Uint16Array(256)
+    for (let i = 0; i < 256 && i * 2 + 1 < heightmap.length; i++) heights[i] = heightmap.readUInt16LE(i * 2)
+    return heights
+  }
+
   async writeBiomesAndElevation (cc: BedrockChunk) {
     if (cc.chunkVersion >= Version.v1_18_0) {
       const key = KeyBuilder.buildHeightmapAnd3DBiomeKey(cc.x, cc.z, this.dimension)
@@ -208,7 +215,7 @@ export class WorldProvider {
         column.diskDecodeBlockEntities(await this.readBlockEntities(cver, x, z))
         const data = await this.readBiomesAndElevation(cver, x, z)
         if (data) {
-          if (data.heightmap) column.loadHeights(new Uint16Array(data.heightmap))
+          if (data.heightmap) column.loadHeights(this.readHeights(data.heightmap))
           if (data.biomes2d) {
             column.loadLegacyBiomes(data.biomes2d)
           } else if (data.biomes3d) {
