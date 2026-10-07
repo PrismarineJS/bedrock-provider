@@ -120,7 +120,7 @@ export class WorldProvider {
     const promises = []
     if (column.chunkVersion >= Version.v1_17_0) {
       for (let y = column.minCY; y < column.maxCY; y++) {
-        const section = column.getSection(y)
+        const section = column.getSectionAtIndex(y)
         if (!section) {
           break // no more sections
         }
