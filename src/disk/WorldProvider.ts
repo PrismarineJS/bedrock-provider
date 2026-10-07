@@ -162,6 +162,22 @@ export class WorldProvider {
     return heights
   }
 
+  // The 3D biomes as the game saves them (32-bit palette IDs), or as this provider saves them: prismarine-chunk's
+  // writeBiomes writes the network format (varint IDs). Uses whichever format reads the whole buffer into biomes
+  // the registry knows; with neither, the column is left without biomes.
+  loadBiomes3d (column: BedrockChunk, biomes: Buffer) {
+    const c = column as any
+    for (const storageType of [StorageType.LocalPersistence, StorageType.Runtime]) {
+      try {
+        const stream = new Stream(biomes)
+        column.loadBiomes(stream, storageType)
+        const known = c.biomes.every(section => !section.palette || section.palette.every(id => this.registry.biomes[id]))
+        if (stream.readOffset === biomes.length && known) return
+      } catch {}
+    }
+    c.biomes = []
+  }
+
   async writeBiomesAndElevation (cc: BedrockChunk) {
     if (cc.chunkVersion >= Version.v1_18_0) {
       const key = KeyBuilder.buildHeightmapAnd3DBiomeKey(cc.x, cc.z, this.dimension)
@@ -219,7 +235,7 @@ export class WorldProvider {
           if (data.biomes2d) {
             column.loadLegacyBiomes(data.biomes2d)
           } else if (data.biomes3d) {
-            column.loadBiomes(data.biomes3d, StorageType.LocalPersistence as number)
+            this.loadBiomes3d(column, data.biomes3d)
           }
         }
       }

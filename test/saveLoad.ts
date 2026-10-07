@@ -5,6 +5,8 @@ import assert from 'assert'
 import Registry from 'prismarine-registry'
 import PrismarineChunk from 'prismarine-chunk'
 import fs from 'fs'
+// The built module: the source uses global types ts-node doesn't load for tests
+const { KeyBuilder } = require('bedrock-provider/js/disk/databaseKeys')
 
 // Sub chunks have a key of their own since 0.17.0; prismarine-chunk gives 1.16 and 1.17 columns chunk version 1.16.0
 const subChunkVersions = ['1.16.220', '1.17.10', '1.18.0', '1.19.1', '1.20.0', '1.21.0']
@@ -84,6 +86,49 @@ describe('save and load', function () {
       const loaded = await saveAndLoad(column, true)
       assert.deepStrictEqual(Array.from(loaded.getHeights()), Array.from(heights))
     })
+
+    if (chunkVersion >= Version.v1_18_0) {
+      // A biome at the bottom, in the middle and at the top of a few sub chunks, a different one in each
+      function biomePositions (column) {
+        const positions: Array<{ pos: { x: number, y: number, z: number }, biomeId: number }> = []
+        for (const [i, cy] of [column.minCY, 0, column.maxCY - 1].entries()) {
+          for (const [x, y, z] of [[0, 0, 0], [5, 8, 9], [15, 15, 15]]) {
+            positions.push({ pos: { x, y: cy * 16 + y, z }, biomeId: biomeIds[(i + x) % biomeIds.length] })
+          }
+        }
+        return positions
+      }
+
+      it(`keeps the 3D biomes on ${version}`, async () => {
+        const column = new ChunkColumn({ x: -5, z: 7 })
+        const positions = biomePositions(column)
+        for (const { pos, biomeId } of positions) column.setBiomeId(pos, biomeId)
+        const loaded = await saveAndLoad(column, true)
+        for (const { pos, biomeId } of positions) {
+          assert.strictEqual(loaded.getBiomeId(pos), biomeId, `biome at ${pos.x},${pos.y},${pos.z}`)
+        }
+      })
+
+      it(`loads the 3D biomes the game saved on ${version}`, async () => {
+        const column = new ChunkColumn({ x: 6, z: -1 })
+        await wp.save(column.x, column.z, column)
+        // The game's format: the heightmap, then per sub chunk a palette header with the runtime ID flag and,
+        // for a single biome, its 32-bit ID
+        const subChunkCount = column.maxCY - column.minCY
+        const data = Buffer.alloc(512 + subChunkCount * 5)
+        for (let i = 0; i < subChunkCount; i++) {
+          data.writeUInt8(1, 512 + i * 5)
+          data.writeInt32LE(biomeIds[i % biomeIds.length], 512 + i * 5 + 1)
+        }
+        await db.put(KeyBuilder.buildHeightmapAnd3DBiomeKey(column.x, column.z, 0), data)
+
+        const loaded = await wp.load(column.x, column.z, true) as any
+        for (let i = 0; i < subChunkCount; i++) {
+          const y = (column.minCY + i) * 16 + 4
+          assert.strictEqual(loaded.getBiomeId({ x: 3, y, z: 3 }), biomeIds[i % biomeIds.length], `biome at y ${y}`)
+        }
+      })
+    }
 
     if (chunkVersion < Version.v1_18_0) {
       it(`keeps the 2D biomes on ${version}`, async () => {
