@@ -55,7 +55,7 @@ export class WorldProvider {
       for (let y = cc.minCY; y < cc.maxCY; y++) {
         const chunk = await this.get(KeyBuilder.buildChunkKey(x, y, z, this.dimension))
         // console.log('Read chunk', x, y, z, chunk)
-        if (!chunk) continue // an empty sub chunk is not saved; one above it may be
+        if (!chunk) continue
         try {
           cc.newSection(y, StorageType.LocalPersistence as int, chunk)
         } catch (e) {
@@ -121,9 +121,7 @@ export class WorldProvider {
     if (column.chunkVersion >= Version.v0_17_0) {
       for (let y = column.minCY; y < column.maxCY; y++) {
         const section = column.getSectionAtIndex(y)
-        if (!section) {
-          continue // an empty sub chunk; one above it may hold blocks
-        }
+        if (!section) continue
         const key = KeyBuilder.buildChunkKey(column.x, y, column.z, this.dimension)
         const buf = await section.encode(StorageType.LocalPersistence)
         promises.push(this.db.put(key, buf))
@@ -155,23 +153,20 @@ export class WorldProvider {
     await this.db.put(key, buffer)
   }
 
-  // The heightmap: 256 little-endian 16-bit heights
-  readHeights (heightmap: Buffer): Uint16Array {
+  private readHeights (heightmap: Buffer): Uint16Array {
     const heights = new Uint16Array(256)
-    for (let i = 0; i < 256 && i * 2 + 1 < heightmap.length; i++) heights[i] = heightmap.readUInt16LE(i * 2)
+    for (let i = 0; i < Math.min(256, heightmap.length >> 1); i++) heights[i] = heightmap.readUInt16LE(i * 2)
     return heights
   }
 
-  // The 3D biomes as the game saves them (32-bit palette IDs), or as this provider saves them: prismarine-chunk's
-  // writeBiomes writes the network format (varint IDs). Uses whichever format reads the whole buffer into biomes
-  // the registry knows; with neither, the column is left without biomes.
-  loadBiomes3d (column: BedrockChunk, biomes: Buffer) {
+  // As the game saves them (LocalPersistence), or as prismarine-chunk's writeBiomes does (Runtime)
+  private loadBiomes3d (column: BedrockChunk, biomes: Buffer): void {
     const c = column as any
     for (const storageType of [StorageType.LocalPersistence, StorageType.Runtime]) {
       try {
         const stream = new Stream(biomes)
         column.loadBiomes(stream, storageType)
-        const known = c.biomes.every(section => !section.palette || section.palette.every(id => this.registry.biomes[id]))
+        const known: boolean = c.biomes.every(section => section.palette === undefined || section.palette.every(id => this.registry.biomes[id] !== undefined))
         if (stream.readOffset === biomes.length && known) return
       } catch {}
     }

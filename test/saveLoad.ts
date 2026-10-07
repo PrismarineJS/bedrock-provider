@@ -5,16 +5,15 @@ import assert from 'assert'
 import Registry from 'prismarine-registry'
 import PrismarineChunk from 'prismarine-chunk'
 import fs from 'fs'
-// The built module: the source uses global types ts-node doesn't load for tests
+// built: the source uses global types that ts-node does not load
 const { KeyBuilder } = require('bedrock-provider/js/disk/databaseKeys')
 
-// Sub chunks have a key of their own since 0.17.0; prismarine-chunk gives 1.16 and 1.17 columns chunk version 1.16.0
-const subChunkVersions = ['1.16.220', '1.17.10', '1.18.0', '1.19.1', '1.20.0', '1.21.0']
+const versions = ['1.16.220', '1.17.10', '1.18.0', '1.19.1', '1.20.0', '1.21.0']
 
 type Pos = { l: number, x: number, y: number, z: number }
 
 describe('save and load', function () {
-  for (const version of subChunkVersions) {
+  for (const version of versions) {
     const registry = Registry('bedrock_' + version)
     const ChunkColumn = PrismarineChunk(registry) as any
     const worldPath = join(__dirname, '/flat-save-load-' + version)
@@ -35,8 +34,7 @@ describe('save and load', function () {
       fs.rmSync(worldPath, { recursive: true })
     })
 
-    // Sets a few blocks in the sub chunk at chunk Y `cy`, all of a state no other sub chunk uses,
-    // so a sub chunk saved or loaded at the wrong height is caught
+    // a state no other sub chunk has, so one saved at the wrong height is caught
     function fillSubChunk (column, cy: number) {
       const stateId = (cy - column.minCY) * 37 + 1
       const blocks: Array<{ pos: Pos, stateId: number }> = []
@@ -71,7 +69,6 @@ describe('save and load', function () {
     })
 
     it(`keeps the sub chunks above an empty one on ${version}`, async () => {
-      // Empty sub chunks below the first one and between the others, like a floating island
       const column = new ChunkColumn({ x: 3, z: 4 })
       const subChunkYs = [column.minCY + 2, column.minCY + 5, column.maxCY - 1]
       const blocks = subChunkYs.flatMap(cy => fillSubChunk(column, cy))
@@ -80,25 +77,23 @@ describe('save and load', function () {
 
     it(`keeps the heightmap on ${version}`, async () => {
       const column = new ChunkColumn({ x: 2, z: -3 })
-      // Heights above 255 too, so they don't fit in a byte
       const heights = new Uint16Array(256).map((_, i) => (i * 7) % 400)
       column.loadHeights(heights)
       const loaded = await saveAndLoad(column, true)
       assert.deepStrictEqual(Array.from(loaded.getHeights()), Array.from(heights))
     })
 
-    if (chunkVersion >= Version.v1_18_0) {
-      // A biome at the bottom, in the middle and at the top of a few sub chunks, a different one in each
-      function biomePositions (column) {
-        const positions: Array<{ pos: { x: number, y: number, z: number }, biomeId: number }> = []
-        for (const [i, cy] of [column.minCY, 0, column.maxCY - 1].entries()) {
-          for (const [x, y, z] of [[0, 0, 0], [5, 8, 9], [15, 15, 15]]) {
-            positions.push({ pos: { x, y: cy * 16 + y, z }, biomeId: biomeIds[(i + x) % biomeIds.length] })
-          }
+    function biomePositions (column) {
+      const positions: Array<{ pos: { x: number, y: number, z: number }, biomeId: number }> = []
+      for (const [i, cy] of [column.minCY, 0, column.maxCY - 1].entries()) {
+        for (const [x, y, z] of [[0, 0, 0], [5, 8, 9], [15, 15, 15]]) {
+          positions.push({ pos: { x, y: cy * 16 + y, z }, biomeId: biomeIds[(i + x) % biomeIds.length] })
         }
-        return positions
       }
+      return positions
+    }
 
+    if (chunkVersion >= Version.v1_18_0) {
       it(`keeps the 3D biomes on ${version}`, async () => {
         const column = new ChunkColumn({ x: -5, z: 7 })
         const positions = biomePositions(column)
@@ -112,8 +107,7 @@ describe('save and load', function () {
       it(`loads the 3D biomes the game saved on ${version}`, async () => {
         const column = new ChunkColumn({ x: 6, z: -1 })
         await wp.save(column.x, column.z, column)
-        // The game's format: the heightmap, then per sub chunk a palette header with the runtime ID flag and,
-        // for a single biome, its 32-bit ID
+        // as the game saves them: the heightmap, then per sub chunk a single biome palette with a 32-bit id
         const subChunkCount = column.maxCY - column.minCY
         const data = Buffer.alloc(512 + subChunkCount * 5)
         for (let i = 0; i < subChunkCount; i++) {
@@ -132,7 +126,6 @@ describe('save and load', function () {
 
     if (chunkVersion < Version.v1_18_0) {
       it(`keeps the 2D biomes on ${version}`, async () => {
-        // Not at 0,0, so biomes read for another column are caught
         const column = new ChunkColumn({ x: -5, z: 7 })
         for (let x = 0; x < 16; x++) {
           for (let z = 0; z < 16; z++) column.setBiomeId({ x, y: 0, z }, biomeIds[(x + z) % biomeIds.length])
